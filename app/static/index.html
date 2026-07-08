@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>헬스장 블로그 생성기</title>
+<style>
+  body { font-family: -apple-system, "Malgun Gothic", sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 20px; }
+  label { display: block; margin-top: 14px; font-weight: bold; font-size: 14px; }
+  input[type=text], textarea { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; }
+  textarea { height: 70px; resize: vertical; }
+  .row { display: flex; gap: 16px; align-items: center; margin-top: 14px; }
+  button { padding: 10px 20px; font-size: 15px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; }
+  button:disabled { background: #93a3b8; cursor: default; }
+  #submitBtn { margin-top: 20px; }
+  #status { margin-top: 12px; font-size: 13px; color: #555; }
+  #resultMeta { margin-top: 20px; font-size: 12px; color: #777; }
+  .error { color: #c0392b; }
+
+  .article-toolbar { margin-top: 20px; display: none; }
+  .article-toolbar button { background: #16a34a; padding: 8px 16px; font-size: 13px; }
+
+  /* 지침에서 정한 원문 형식(제목 : / 인용구) / 썸네일 / 시설위치지도사진)을
+     그대로 노출한다. 텍스트를 가공/스타일링하지 않고, 이미지만 해당 줄
+     아래에 추가로 삽입한다. */
+  #article { margin-top: 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px 28px; display: none; white-space: pre-wrap; font-size: 14.5px; line-height: 1.8; }
+  #article p { margin: 0 0 18px 0; }
+  #article p.section-start { margin-top: 30px; }
+  .image-wrap { margin: 10px 0 22px 0; }
+  .image-wrap img { max-width: 100%; max-width: 420px; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; display: block; }
+  .image-wrap .recommended-text { margin-top: 8px; padding: 8px 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; font-size: 13px; color: #92400e; max-width: 420px; }
+  .image-wrap .download-link { display: inline-block; margin-top: 6px; font-size: 12px; color: #2563eb; text-decoration: none; }
+  .image-wrap .download-link:hover { text-decoration: underline; }
+
+  .saved-toggle { margin-top: 32px; }
+  .saved-toggle button { background: #6b7280; padding: 8px 16px; font-size: 13px; }
+  #savedList { margin-top: 12px; display: none; }
+  .saved-item { padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .saved-item-main { cursor: pointer; flex: 1; }
+  .saved-item:hover { background: #f3f4f6; }
+  .saved-item .saved-date { color: #999; font-size: 11px; margin-right: 8px; }
+  .saved-item .saved-delete-btn { flex-shrink: 0; border: 1px solid #f3c2c2; background: #fff; color: #d33; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .saved-item .saved-delete-btn:hover { background: #fdecec; }
+  .saved-empty { font-size: 13px; color: #888; }
+</style>
+</head>
+<body>
+  <h1>헬스장 & 피트니스 블로그 생성기</h1>
+  <form id="form">
+    <label>시설 정보 (gym_info)</label>
+    <textarea id="gym_info" required>서울 강남구 역삼동 피트니스센터, 1:1 PT 및 그룹 운동 프로그램, 최신 운동기구 보유</textarea>
+
+    <label>키워드 (keyword)</label>
+    <input type="text" id="keyword" required value="강남 PT" />
+
+    <label>개별 조건 (priors)</label>
+    <textarea id="priors">체지방 감량과 근력 운동에 초점, 초보자 대상</textarea>
+
+    <div class="row">
+      <label style="margin:0">컨셉</label>
+      <label style="margin:0;font-weight:normal"><input type="radio" name="concept" value="default" checked /> 일반</label>
+      <label style="margin:0;font-weight:normal"><input type="radio" name="concept" value="trainer" /> 트레이너 1인칭</label>
+    </div>
+
+    <div class="row">
+      <label style="margin:0;font-weight:normal"><input type="checkbox" id="generate_images" checked /> 카드뉴스 이미지도 생성 (표지 1장 + 내지 1장, 시간이 더 걸립니다)</label>
+    </div>
+
+    <button type="submit" id="submitBtn">블로그 글 생성하기</button>
+  </form>
+
+  <div id="status"></div>
+  <div class="article-toolbar" id="articleToolbar">
+    <button type="button" id="copyBtn">글 복사</button>
+    <button type="button" id="boardWriteBtn" style="display:none; background:#0891b2;">아임웹 게시판 글쓰기 페이지로 이동</button>
+    <div id="publishHint" style="display:none; margin-top:8px; font-size:12px; color:#777;">
+      아임웹 Open API가 게시판 자동 등록을 지원하지 않아, 글을 복사한 뒤 게시판 글쓰기 페이지에 직접 붙여넣어야 합니다.
+    </div>
+  </div>
+  <div id="article"></div>
+  <div id="resultMeta"></div>
+
+  <div class="saved-toggle">
+    <button type="button" id="viewSavedBtn">저장된 글 목록 보기</button>
+  </div>
+  <div id="savedList"></div>
+
+  <script>
+    const form = document.getElementById('form');
+    const statusEl = document.getElementById('status');
+    const articleToolbar = document.getElementById('articleToolbar');
+    const articleEl = document.getElementById('article');
+    const metaEl = document.getElementById('resultMeta');
+    const submitBtn = document.getElementById('submitBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const boardWriteBtn = document.getElementById('boardWriteBtn');
+    const publishHint = document.getElementById('publishHint');
+
+    let currentContent = '';
+    let appConfig = { storage_available: true, board_write_url: null };
+
+    // 서버 설정(저장 기능 사용 가능 여부, 아임웹 게시판 글쓰기 URL)을 미리 받아둔다.
+    fetch('/api/config')
+      .then((res) => res.json())
+      .then((config) => {
+        appConfig = config;
+        if (config.board_write_url) {
+          boardWriteBtn.style.display = 'inline-block';
+          boardWriteBtn.addEventListener('click', () => {
+            window.open(config.board_write_url, '_blank', 'noopener');
+          });
+        }
+      })
+      .catch(() => {});
+
+    // "인용구) " 접두사와 끝의 물음표/마침표, 앞뒤 공백 차이를 무시하고 비교하기 위한 정규화
+    // (본문 이미지 삽입 위치를 찾을 때만 쓰고, 화면에 보여줄 텍스트 자체는 건드리지 않는다)
+    function normalizeHeading(text) {
+      return (text || '')
+        .replace(/^인용구\)\s*/, '')
+        .replace(/[?!.。]+$/, '')
+        .trim();
+    }
+
+    // 이미지 + "이미지 저장" 다운로드 링크를 함께 담은 블록을 만든다.
+    // 이미지가 실제로 생성되지 않은 경우(generate_images=false 등)에는
+    // 깨진 이미지 아이콘 대신 안내 문구만 보여준다.
+    function makeImageBlock(image) {
+      const wrap = document.createElement('div');
+      wrap.className = 'image-wrap';
+
+      const src = image.image_base64 ? 'data:image/png;base64,' + image.image_base64 : image.image_url;
+
+      if (!src) {
+        const note = document.createElement('div');
+        note.style.fontSize = '12px';
+        note.style.color = image.image_error ? '#c0392b' : '#999';
+        note.textContent = image.image_error
+          ? `이미지 생성 실패 (${image.filename}): ${image.image_error}`
+          : `(이미지 미생성 — ${image.filename})`;
+        wrap.appendChild(note);
+        return wrap;
+      }
+
+      const img = document.createElement('img');
+      img.alt = image.alt || '';
+      img.src = src;
+      wrap.appendChild(img);
+
+      // 카드뉴스 이미지에는 글자가 없으므로, 사용자가 나중에 디자인 툴에서
+      // 직접 얹을 수 있도록 추천 타이틀/본문 문구를 함께 보여준다.
+      const recommendedText = image.recommended_title || image.recommended_body_text;
+      if (recommendedText) {
+        const box = document.createElement('div');
+        box.className = 'recommended-text';
+        box.textContent = (image.recommended_title ? '추천 타이틀: ' : '추천 본문: ') + recommendedText;
+        wrap.appendChild(box);
+      }
+
+      const link = document.createElement('a');
+      link.className = 'download-link';
+      link.href = src;
+      link.download = image.filename || 'image.jpg';
+      link.textContent = `이미지 저장 (${image.filename})`;
+      wrap.appendChild(link);
+
+      return wrap;
+    }
+
+    // content는 지침에서 정한 형식(제목 : / 인용구) / 썸네일 / 시설위치지도사진)
+    // 그대로, 가공 없이 한 줄씩 출력한다. 이미지는 해당 마커/소제목 줄
+    // 바로 아래에 "추가로" 삽입할 뿐, 원문 텍스트는 지우거나 바꾸지 않는다.
+    function renderArticle(content, images) {
+      const representative = images.find((img) => img.type === '대표 이미지');
+      const bodyImages = images.filter((img) => img.type === '본문 이미지');
+      const usedBodyImages = new Set();
+
+      articleEl.innerHTML = '';
+      const lines = content.split('\n');
+
+      lines.forEach((rawLine) => {
+        const line = rawLine.trim();
+        if (!line) return;
+
+        const p = document.createElement('p');
+        p.textContent = line; // 원문 그대로 출력, 접두사/마커 제거하지 않음
+        // 텍스트는 그대로 두되, 소제목("인용구) ")과 마커 줄 앞에는 여백을 더 줘서
+        // 문단/섹션이 시각적으로 구분되게 한다.
+        if (line.startsWith('인용구) ') || line === '썸네일' || line === '시설위치지도사진') {
+          p.className = 'section-start';
+        }
+        articleEl.appendChild(p);
+
+        if (line === '썸네일' && representative) {
+          articleEl.appendChild(makeImageBlock(representative));
+        }
+
+        // 이 줄이 어떤 본문 이미지의 삽입 위치와 일치하면 바로 아래에 이미지 삽입.
+        // 모델이 인용구) 접두사나 문장부호를 살짝 다르게 반환할 수 있어 정규화 후
+        // 완전일치 또는 포함관계로 매칭한다.
+        const normalizedLine = normalizeHeading(line);
+        const matched = bodyImages.find((img) => {
+          if (usedBodyImages.has(img) || !img.insert_position) return false;
+          const pos = normalizeHeading(img.insert_position);
+          if (!pos || !normalizedLine) return false;
+          return pos === normalizedLine || normalizedLine.includes(pos) || pos.includes(normalizedLine);
+        });
+        if (matched) {
+          usedBodyImages.add(matched);
+          articleEl.appendChild(makeImageBlock(matched));
+        }
+      });
+
+      // 소제목 텍스트가 정확히 매칭되지 않아 제자리에 못 들어간 본문 이미지는
+      // 유실되지 않도록 글 끝에라도 붙인다.
+      bodyImages
+        .filter((img) => !usedBodyImages.has(img))
+        .forEach((img) => articleEl.appendChild(makeImageBlock(img)));
+
+      articleEl.style.display = 'block';
+      articleToolbar.style.display = 'block';
+      publishHint.style.display = appConfig.board_write_url ? 'block' : 'none';
+    }
+
+    function showCopied() {
+      copyBtn.textContent = '복사됨!';
+      setTimeout(() => { copyBtn.textContent = '글 복사'; }, 1500);
+    }
+
+    // execCommand 폴백: 클립보드 권한이 막혀 있거나 Clipboard API를 못 쓰는
+    // 환경에서도 복사가 되도록 임시 textarea를 이용한 구식 방식을 대비한다.
+    function copyWithFallback(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      let ok = false;
+      try {
+        ok = document.execCommand('copy');
+      } catch (e) {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      return ok;
+    }
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+          throw new Error('clipboard API unavailable');
+        }
+        await navigator.clipboard.writeText(currentContent);
+        showCopied();
+      } catch (err) {
+        if (copyWithFallback(currentContent)) {
+          showCopied();
+        } else {
+          alert('복사에 실패했습니다. 글 내용을 직접 선택해서 복사해 주세요.');
+        }
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      articleEl.style.display = 'none';
+      articleToolbar.style.display = 'none';
+      metaEl.textContent = '';
+      const generateImages = document.getElementById('generate_images').checked;
+      statusEl.textContent = generateImages
+        ? '생성 중입니다... (텍스트 + 카드뉴스 이미지 2장, 최대 2~3분 정도 걸릴 수 있어요)'
+        : '생성 중입니다... (텍스트만, 보통 10~30초)';
+
+      const payload = {
+        gym_info: document.getElementById('gym_info').value,
+        keyword: document.getElementById('keyword').value,
+        concept: document.querySelector('input[name=concept]:checked').value,
+        priors: document.getElementById('priors').value || null,
+        generate_images: generateImages,
+      };
+
+      try {
+        const res = await fetch('/api/generate-gym', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || JSON.stringify(data));
+        }
+        window.__lastData = data; // 콘솔 디버깅용
+        currentContent = data.content;
+        renderArticle(data.content, data.images);
+        const savedNote = data.id != null ? `#${data.id} 저장됨` : '저장 안 됨(이 환경은 저장 미지원)';
+        metaEl.textContent = `${savedNote} | 글자수: ${data.content_length}자 | 이미지 ${data.images.length}개 (대표 1 + 본문 ${data.images.length - 1})`;
+        statusEl.textContent = '완료됐습니다.';
+        if (savedListEl.style.display === 'block') {
+          loadSavedList(); // 목록이 열려 있으면 방금 저장한 글도 바로 보이게 갱신
+        }
+      } catch (err) {
+        statusEl.innerHTML = '<span class="error">오류: ' + err.message + '</span>';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    // ---- 저장된 글 목록 ----
+    const viewSavedBtn = document.getElementById('viewSavedBtn');
+    const savedListEl = document.getElementById('savedList');
+
+    function formatDate(iso) {
+      try {
+        return new Date(iso).toLocaleString('ko-KR');
+      } catch (e) {
+        return iso;
+      }
+    }
+
+    async function loadSavedList() {
+      savedListEl.style.display = 'block';
+      if (!appConfig.storage_available) {
+        savedListEl.innerHTML = '<div class="saved-empty">이 환경에서는 저장 기능을 사용할 수 없습니다. "글 복사" 후 게시판에 직접 붙여넣어 주세요.</div>';
+        return;
+      }
+      savedListEl.innerHTML = '불러오는 중...';
+      try {
+        const res = await fetch('/api/posts');
+        const posts = await res.json();
+        savedListEl.innerHTML = '';
+        if (posts.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'saved-empty';
+          empty.textContent = '아직 저장된 글이 없습니다.';
+          savedListEl.appendChild(empty);
+          return;
+        }
+        posts.forEach((post) => {
+          const item = document.createElement('div');
+          item.className = 'saved-item';
+
+          const main = document.createElement('span');
+          main.className = 'saved-item-main';
+          main.innerHTML = `<span class="saved-date">${formatDate(post.created_at)}</span>#${post.id} ${post.title} (${post.content_length}자, ${post.keyword})`;
+          main.addEventListener('click', () => loadSavedPost(post.id));
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'saved-delete-btn';
+          deleteBtn.textContent = '삭제';
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteSavedPost(post.id);
+          });
+
+          item.appendChild(main);
+          item.appendChild(deleteBtn);
+          savedListEl.appendChild(item);
+        });
+      } catch (err) {
+        savedListEl.innerHTML = '<span class="error">목록을 불러오지 못했습니다: ' + err.message + '</span>';
+      }
+    }
+
+    async function deleteSavedPost(id) {
+      if (!confirm('이 저장 글을 삭제할까요?')) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+        if (!res.ok && res.status !== 204) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.detail || `삭제 실패 (${res.status})`);
+        }
+        loadSavedList();
+      } catch (err) {
+        alert('삭제하지 못했습니다: ' + err.message);
+      }
+    }
+
+    async function loadSavedPost(id) {
+      statusEl.textContent = '저장된 글을 불러오는 중입니다...';
+      try {
+        const res = await fetch(`/api/posts/${id}`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || JSON.stringify(data));
+        }
+        window.__lastData = data;
+        currentContent = data.content;
+        renderArticle(data.content, data.images);
+        metaEl.textContent = `#${data.id} 저장된 글 | 글자수: ${data.content_length}자 | 이미지 ${data.images.length}개`;
+        statusEl.textContent = '저장된 글을 불러왔습니다.';
+        articleEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (err) {
+        statusEl.innerHTML = '<span class="error">불러오기 실패: ' + err.message + '</span>';
+      }
+    }
+
+    viewSavedBtn.addEventListener('click', () => {
+      if (savedListEl.style.display === 'block') {
+        savedListEl.style.display = 'none';
+      } else {
+        loadSavedList();
+      }
+    });
+  </script>
+</body>
+</html>
