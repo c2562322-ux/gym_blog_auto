@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 from openai import OpenAI
 
 from .openai_client import format_image_plan_text, generate_blog_post, generate_images_parallel
@@ -34,10 +35,14 @@ IMWEB_BOARD_WRITE_URL = os.environ.get("IMWEB_BOARD_WRITE_URL")
 
 app = FastAPI(title="Gym & Fitness Blog Generator")
 
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/ui/")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("FRONTEND_ORIGINS", "http://localhost:3000").split(","),
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
