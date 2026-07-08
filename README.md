@@ -1,103 +1,58 @@
-# 헬스장 & 피트니스 블로그 생성기
+# 프로젝트 배경 및 작업 맥락
 
-헬스장/피트니스 센터 마케팅용 네이버 블로그 스타일 글과 카드뉴스 이미지를 자동으로 생성하는 FastAPI 백엔드입니다. OpenAI로 블로그 본문과 카드뉴스 이미지(표지 1장 + 내지 1장)를 함께 생성하고, 별도 프론트엔드 빌드 없이 바로 써볼 수 있는 테스트 화면(`/ui/`)을 제공합니다.
+다른 PC/새 대화에서 이 프로젝트를 이어갈 때 빠르게 맥락을 파악하기 위한 요약 문서입니다.
 
-## 주요 기능
+## 이 앱이 하는 일
 
-- **블로그 글 생성**: "제목 : ", "인용구) ", "썸네일", "시설위치지도사진" 마커를 포함한 고정 형식, 1,500~1,600자 분량 자동 조절
-- **어투/톤**: 해요체 중심, 시설 홍보 뉘앙스를 살짝 곁들인 정보성 글 (표시광고법 위반 과장 표현 금지)
-- **컨셉 선택**: 일반(`default`) / 트레이너 1인칭(`trainer`)
-- **카드뉴스 이미지 자동 생성**: 표지 1장 + 내지 1장(1:1 비율), 흰 배경·포인트 컬러 1개·체크포인트 박스 형태의 밝고 깔끔한 정보형 디자인, 추천 타이틀/본문 문구가 이미지 안에 실제로 렌더링됨
-- **글 저장/조회/삭제**: 로컬 개발 환경에서는 SQLite에 저장 (운영 환경에서는 자동으로 비활성화, 아래 참고)
-- **아임웹 연동(수동)**: 아임웹 Open API가 게시판 자동 등록을 지원하지 않아, 생성 결과를 복사해 아임웹 게시판 글쓰기 페이지에 붙여넣는 수동 흐름을 안내
+헬스장·피트니스 센터 마케팅용 네이버 블로그 스타일 글과 카드뉴스 이미지를 자동 생성하는 FastAPI 백엔드입니다.
 
-## 기술 스택
+- 텍스트: OpenAI `gpt-5.4-mini` (chat.completions, json_schema strict 모드)
+- 이미지: OpenAI `gpt-image-2`
+- 테스트 UI: `/ui/` (React/npm 없이 순수 HTML/JS, `app/static/index.html`)
 
-- FastAPI + Pydantic
-- OpenAI API — 텍스트: `gpt-5.4-mini`, 이미지: `gpt-image-2`
-- SQLite (로컬 개발용 저장소)
-- 순수 HTML/JS 테스트 페이지 (`app/static/index.html`, 별도 npm 빌드 불필요)
+## 주요 설계 결정과 이유
 
-## 시작하기
+1. **왜 OpenAI인가**: 처음엔 Anthropic Claude로 시작했으나, 사용자가 명시적으로 OpenAI로 전환 요청 (`app/openai_client.py`가 그 결과물, `app/claude_client.py`는 삭제됨).
 
-### 1. 준비물
+2. **글 형식이 고정된 이유**: 사용자가 실제로 쓰는 네이버 블로그 템플릿 그대로여야 해서 "제목 : ", "인용구) ", "썸네일", "시설위치지도사진" 마커를 리터럴 텍스트로 강제함 (`app/prompts.py`의 `COMMON_RULES`). 마크다운 금지, 분량 1,500~1,600자 강제(초과/부족 시 자동 보정 + 안전 트렁케이션, `app/openai_client.py`의 `generate_blog_post`).
 
-- Python 3.10 이상
-- OpenAI API 키 ([platform.openai.com](https://platform.openai.com)에서 발급, 결제 수단 등록 및 사용 한도 확인 필요)
+3. **어투/톤 변경 이력**: 처음엔 "~습니다"체 정보성 글 → 이후 해요체 중심 + 시설 홍보 뉘앙스를 살짝 넣도록 변경 (`[어투]`, `[시설 홍보 반영]` 블록). 표시광고법 위반 표현(과장·단정·최상급)은 항상 금지.
 
-### 2. 설치
+4. **카드뉴스 이미지 스타일 변천사** (`IMAGE_RULES`):
+   - 초기: 이미지 0~2장 자유 → 이후 정확히 2장 고정(표지+내지)
+   - 텍스트 없는 여백 이미지 → 추천 타이틀/본문 문구를 이미지 안에 실제로 렌더링하도록 변경
+   - 일러스트/애니메이션풍 → 실사(사진) 스타일로 변경
+   - **최종(현재)**: 실사 사진이 프레임을 꽉 채우는 어두운 "체육관 포스터" 스타일을 버리고, **흰 배경 + 파란/초록 포인트 컬러 1개 + 체크포인트 박스 + 심플 아이콘 + 사진은 한쪽에 작게** 배치하는 밝고 clean한 정보형 카드뉴스 스타일로 최종 확정. 도메인별(헬스장/의료/웰니스) 변수 구조도 프롬프트 안에 문서화되어 있음.
 
-```bash
+5. **저장소 추상화 (`app/repository.py`)**: Vercel 서버리스 환경은 파일시스템이 호출 간에 유지되지 않아 SQLite를 못 씀. `PostRepository` 추상 클래스를 만들고, 로컬 개발은 `SqlitePostRepository`(`data/posts.db`), 운영(Vercel)은 `NullPostRepository`(무저장, 저장 관련 API가 501/no-op)로 `get_post_repository()`가 `VERCEL` 환경변수를 보고 자동 분기함.
+
+6. **아임웹(Imweb) 자동 게시 미구현**: 아임웹 Open API 전체 스펙을 조사한 결과 게시판 글쓰기 API가 없음(확인 완료, 재조사 불필요). 그래서 `ImwebPostRepository`는 만들지 않았고, 대신 `IMWEB_BOARD_WRITE_URL` 환경변수로 게시판 글쓰기 페이지 링크만 제공 → 사용자가 "글 복사" 후 수동으로 붙여넣는 흐름.
+
+7. **글 삭제 기능**: `DELETE /api/posts/{id}`는 SQLite 개발용 저장 글만 대상. 이미지가 별도 파일이 아니라 `images_json` 컬럼에 함께 저장되므로 행 삭제만으로 이미지도 같이 정리됨. 아임웹에 이미 발행된 글과는 구조적으로 무관(연결점 자체가 없음).
+
+## 로컬 실행 방법
+
+```
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS/Linux
-
+.venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### 3. 환경변수 설정
-
-`.env.example`을 복사해 `.env`를 만들고 값을 채워주세요.
-
-```bash
-copy .env.example .env        # Windows
-# cp .env.example .env        # macOS/Linux
-```
-
-| 변수 | 필수 | 설명 |
-|---|---|---|
-| `OPENAI_API_KEY` | 필수 | OpenAI API 키 |
-| `FRONTEND_ORIGINS` | 선택 | CORS 허용 origin (쉼표로 구분, 기본값 `http://localhost:3000`) |
-| `APP_ENV` | 선택 | `production`으로 설정하면 저장소가 비활성화됨(운영 환경 시뮬레이션용) |
-| `IMWEB_BOARD_WRITE_URL` | 선택 | 아임웹 게시판 글쓰기 페이지 URL. 설정 시 UI에 "게시판 글쓰기 페이지로 이동" 버튼이 노출됨 |
-
-### 4. 로컬 서버 실행
-
-```bash
+copy .env.example .env   # 그 다음 .env에 실제 OPENAI_API_KEY 채워넣기
 uvicorn app.main:app --reload --port 8000
 ```
 
-브라우저에서 `http://localhost:8000/ui/` 접속하면 바로 테스트할 수 있습니다.
+브라우저에서 `http://localhost:8000/ui/` 접속.
 
-## 사용 방법 (`/ui/` 테스트 화면)
+## Vercel 배포
 
-1. **시설 정보**: 센터명, 지역, 시설 특징 등을 자유 서술로 입력
-2. **키워드**: 제목/본문에 반영할 검색 키워드 (예: "강남 PT")
-3. **개별 조건**: 이번 글에서 강조하고 싶은 조건(예: "체지방 감량과 근력 운동에 초점, 초보자 대상")
-4. **컨셉**: 일반 / 트레이너 1인칭 중 선택
-5. **카드뉴스 이미지 생성 여부** 체크 후 "블로그 글 생성하기" 클릭
-   - 이미지까지 생성하면 시간이 더 걸립니다(수십 초~수분, 드물게 더 오래 걸릴 수 있음)
-6. 결과 화면에서
-   - **글 복사**: 생성된 글 전체를 클립보드로 복사
-   - **이미지 저장**: 카드뉴스 이미지를 파일로 다운로드
-   - **아임웹 게시판 글쓰기 페이지로 이동**: `IMWEB_BOARD_WRITE_URL` 설정 시에만 노출, 클릭하면 아임웹 글쓰기 페이지가 새 탭으로 열림 → 복사한 글/이미지를 직접 붙여넣기
-7. **저장된 글 목록 보기**: 이전에 생성한 글 목록 확인, 클릭 시 상세 보기, 각 항목의 "삭제" 버튼으로 개별 삭제 가능 (로컬 SQLite 저장 글만 대상)
+`vercel.json`이 이미 준비되어 있음 (`@vercel/python` 빌더, `app/static` 포함 설정).
 
-## API 개요
+- 환경변수 `OPENAI_API_KEY` 필수 (Vercel 대시보드 또는 `vercel env add`로 설정)
+- Vercel은 `VERCEL=1`을 자동 설정하므로 배포 즉시 `NullPostRepository`로 전환됨 (별도 설정 불필요)
+- `IMWEB_BOARD_WRITE_URL`은 선택 사항
 
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| `POST` | `/api/generate-gym` | 블로그 글 + 카드뉴스 이미지 생성 |
-| `GET` | `/api/posts` | 저장된 글 목록 조회 |
-| `GET` | `/api/posts/{id}` | 저장된 글 상세 조회 |
-| `DELETE` | `/api/posts/{id}` | 저장된 글 삭제 (로컬 SQLite 전용) |
-| `GET` | `/api/config` | 프론트엔드용 설정값(저장 기능 사용 가능 여부, 아임웹 링크) 조회 |
+## 알려진 이슈 / 주의사항
 
-## 배포 (Vercel)
-
-`vercel.json`이 포함되어 있어 별도 설정 없이 배포할 수 있습니다.
-
-```bash
-npm install -g vercel
-vercel login
-vercel env add OPENAI_API_KEY   # Production/Preview/Development 모두 체크
-vercel --prod
-```
-
-Vercel은 런타임에 `VERCEL=1`을 자동으로 설정하는데, 이 값을 감지해 저장소가 자동으로 비활성화됩니다(서버리스 환경은 파일시스템이 호출 간 유지되지 않아 SQLite를 쓸 수 없기 때문). 운영 환경에서는 "저장된 글 목록" 기능 대신 "글 복사" 흐름을 사용해주세요.
-
-## 알아두면 좋은 점
-
-- 이미지 생성 소요 시간은 OpenAI API 자체의 특성상 편차가 큽니다(수십 초~수분, 드물게 더 오래 걸릴 수 있음). 표지/내지 이미지는 병렬로 요청해 대기 시간을 줄였습니다.
-- `429 insufficient_quota` 오류가 뜨면 코드 문제가 아니라 OpenAI 계정의 결제/사용 한도 문제입니다. [OpenAI 대시보드](https://platform.openai.com/settings/organization/billing/overview)에서 확인해주세요.
-- 더 자세한 설계 배경과 의사결정 이력은 [CONTEXT.md](CONTEXT.md)를 참고해주세요.
+- 이미지 생성 지연시간 편차가 매우 큼 (45초~20분 이상 관찰됨). 코드 문제가 아니라 OpenAI API 자체의 변동성이며, 병렬 생성(`ThreadPoolExecutor`)으로 표지+내지 동시 요청해서 그나마 완화함.
+- `OPENAI_API_KEY` 쿼터 초과 시 429 `insufficient_quota` 에러 발생 — 이건 OpenAI 계정 결제/한도 문제이며 코드로 해결 불가, https://platform.openai.com 에서 직접 확인 필요.
+- `.venv/`는 이 PC의 절대경로가 박혀 있어서(`.claude/launch.json` 포함) 다른 PC로 폴더를 그대로 복사하면 안 되고, 새 PC에서 새로 `python -m venv .venv`로 만들어야 함.
+- 이 저장소는 원래 `C:\Users\wldjs` 홈 디렉터리 전체를 git 루트로 잘못 잡고 있었던 적이 있음(커밋 없는 빈 상태였어서 안전하게 삭제하고 `blog_auto` 폴더 전용으로 재초기화함). 다른 PC에서 git 작업할 때도 반드시 프로젝트 폴더 안에서 `git init`했는지 확인할 것.

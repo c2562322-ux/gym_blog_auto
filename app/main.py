@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
 from openai import OpenAI
 
 from .openai_client import format_image_plan_text, generate_blog_post, generate_images_parallel
@@ -35,10 +34,6 @@ IMWEB_BOARD_WRITE_URL = os.environ.get("IMWEB_BOARD_WRITE_URL")
 
 app = FastAPI(title="Gym & Fitness Blog Generator")
 
-@app.get("/", include_in_schema=False)
-def root():
-    return RedirectResponse(url="/ui/")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("FRONTEND_ORIGINS", "http://localhost:3000").split(","),
@@ -52,7 +47,8 @@ repository.init()
 # OPENAI_API_KEY 환경변수에서 자동으로 인증 정보를 읽는다.
 client = OpenAI()
 
-# npm/React 없이 바로 써볼 수 있는 간단한 테스트 페이지: http://localhost:8000/ui/
+# npm/React 없이 바로 써볼 수 있는 간단한 테스트 페이지
+# 기존 /ui/ 경로도 유지한다.
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/ui", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
 
@@ -112,6 +108,7 @@ def generate_gym_post(req: GenerateGymRequest) -> GenerateGymResponse:
                 asset.image_url = result["image"]["data"]
 
     image_plan_text = format_image_plan_text(post["representative_image"], post["body_image"])
+
     # 저장소가 없는 환경(예: Vercel 운영)에서는 post_id가 None으로 돌아온다.
     post_id = repository.save(
         keyword=req.keyword,
@@ -142,22 +139,33 @@ def get_saved_post(post_id: int) -> PostDetail:
             status_code=501,
             detail="이 환경에서는 글 저장 기능을 사용할 수 없습니다. 생성 결과를 복사해서 아임웹 게시판에 직접 붙여넣어 주세요.",
         )
+
     row = repository.get(post_id)
+
     if row is None:
         raise HTTPException(status_code=404, detail="해당 글을 찾을 수 없습니다.")
+
     return PostDetail(**row)
 
 
 @app.delete("/api/posts/{post_id}", status_code=204)
 def delete_saved_post(post_id: int) -> None:
     # SQLite 개발용 저장 글만 대상. 아임웹 게시판에 이미 발행된 글은 이 저장소와
-    # 무관하므로 여기서 지운다고 해서 게시판 글이 함께 삭제되지 않는다 —
+    # 무관하므로 여기서 지운다고 해서 게시판 글이 함께 삭제되지 않는다.
     # 게시판 글의 수정/삭제는 아임웹 게시판에서 직접 처리해야 한다.
     if not repository.available:
         raise HTTPException(
             status_code=501,
             detail="이 환경에서는 글 저장 기능을 사용할 수 없습니다.",
         )
+
     deleted = repository.delete(post_id)
+
     if not deleted:
         raise HTTPException(status_code=404, detail="해당 글을 찾을 수 없습니다.")
+
+
+# 중요:
+# API 라우트 정의가 모두 끝난 뒤 마지막에 루트 UI를 연결한다.
+# 이렇게 해야 /api/... 요청은 API로 처리되고, / 는 정적 UI로 열린다.
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="root-ui")
