@@ -42,8 +42,13 @@ class PostRepository(ABC):
         content: str,
         images: List[Dict[str, Any]],
         image_plan_text: str,
+        generation_type: str = "blog_post",
+        trainer_name: Optional[str] = None,
     ) -> Optional[int]:
-        """글을 저장하고 새 id를 반환한다. 저장이 불가능한 환경이면 None을 반환한다."""
+        """글을 저장하고 새 id를 반환한다. 저장이 불가능한 환경이면 None을 반환한다.
+
+        generation_type을 넘기지 않는 기존 호출부는 계속 "blog_post"로 저장된다.
+        trainer_name은 concept == "trainer"일 때만 의미가 있고, 그 외에는 None으로 저장된다."""
 
     @abstractmethod
     def list(self) -> List[Dict[str, Any]]:
@@ -95,6 +100,24 @@ class SqlitePostRepository(PostRepository):
                 )
                 """
             )
+            self._ensure_generation_type_column(conn)
+            self._ensure_trainer_name_column(conn)
+
+    def _ensure_generation_type_column(self, conn: sqlite3.Connection) -> None:
+        """CREATE TABLE IF NOT EXISTS는 이미 존재하는 테이블의 컬럼을 추가해주지 않으므로,
+        generation_type 기능 이전에 만들어진 기존 posts.db에 대해 수동으로 마이그레이션한다.
+        이미 컬럼이 있으면(신규 DB 포함) 아무 것도 하지 않는다."""
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(posts)").fetchall()}
+        if "generation_type" not in columns:
+            conn.execute("ALTER TABLE posts ADD COLUMN generation_type TEXT DEFAULT 'blog_post'")
+
+    def _ensure_trainer_name_column(self, conn: sqlite3.Connection) -> None:
+        """trainer_name 기능 이전에 만들어진 posts.db를 위한 마이그레이션. 기존 트레이너 글은
+        어떤 트레이너였는지 기록이 없었으므로 NULL로 남는다(기본값 없음 — 저장 목록에서
+        "트레이너 1인칭"으로만 표시하는 폴백으로 처리한다)."""
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(posts)").fetchall()}
+        if "trainer_name" not in columns:
+            conn.execute("ALTER TABLE posts ADD COLUMN trainer_name TEXT")
 
     def save(
         self,
@@ -103,18 +126,22 @@ class SqlitePostRepository(PostRepository):
         content: str,
         images: List[Dict[str, Any]],
         image_plan_text: str,
+        generation_type: str = "blog_post",
+        trainer_name: Optional[str] = None,
     ) -> Optional[int]:
         with self._connect() as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO posts
-                    (created_at, keyword, concept, title, content, content_length, images_json, image_plan_text)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (created_at, keyword, concept, trainer_name, generation_type, title, content, content_length, images_json, image_plan_text)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     datetime.now(timezone.utc).isoformat(),
                     keyword,
                     concept,
+                    trainer_name,
+                    generation_type,
                     _extract_title(content),
                     content,
                     len(content),
@@ -127,9 +154,10 @@ class SqlitePostRepository(PostRepository):
     def list(self) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT id, created_at, keyword, concept, title, content_length FROM posts ORDER BY id DESC"
+                "SELECT id, created_at, keyword, concept, trainer_name, generation_type, title, content_length "
+                "FROM posts ORDER BY id DESC"
             ).fetchall()
-            return [dict(row) for row in rows]
+            return [self._with_generation_type(dict(row)) for row in rows]
 
     def get(self, post_id: int) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
@@ -138,7 +166,14 @@ class SqlitePostRepository(PostRepository):
                 return None
             data = dict(row)
             data["images"] = json.loads(data.pop("images_json"))
-            return data
+            return self._with_generation_type(data)
+
+    @staticmethod
+    def _with_generation_type(data: Dict[str, Any]) -> Dict[str, Any]:
+        """generation_type 컬럼 추가 이전에 저장된 행은 값이 None일 수 있으므로 blog_post로 보정한다."""
+        if not data.get("generation_type"):
+            data["generation_type"] = "blog_post"
+        return data
 
     def delete(self, post_id: int) -> bool:
         # 이미지가 파일이 아니라 images_json 컬럼에 함께 저장되므로,

@@ -4,268 +4,1159 @@
     <meta charset="utf-8" />
     <title>헬스장 블로그 생성기</title>
     <style>
-      body {
-        font-family: -apple-system, "Malgun Gothic", sans-serif;
-        max-width: 760px;
+      /* ============================================================
+         모든 선택자를 .fitness-generator 아래로 스코프한다. 다른
+         홈페이지의 섹션/iframe 안에 이 마크업을 넣어도 호스트 페이지의
+         body/input/button 등 전역 스타일과 충돌하지 않도록, 태그
+         전체 선택자나 전역 reset은 쓰지 않고 항상 .fitness-generator
+         조상 선택자를 붙인다.
+         ============================================================ */
+      .fitness-generator {
+        --fg-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
+          sans-serif;
+        --fg-surface: #ffffff;
+        --fg-surface-muted: #f9fafb;
+        --fg-border: #e5e7eb;
+        --fg-border-strong: #d8dce2;
+        --fg-text: #1f2937;
+        --fg-text-muted: #6b7280;
+        --fg-text-faint: #9ca3af;
+        --fg-primary: #111827;
+        --fg-primary-hover: #262f3d;
+        --fg-accent: #2563eb;
+        --fg-accent-soft: #eff6ff;
+        --fg-danger: #dc2626;
+        --fg-danger-soft: #fef2f2;
+        --fg-danger-border: #fecaca;
+        --fg-success-soft: #f0fdf4;
+        --fg-success-border: #bbf7d0;
+        --fg-success-text: #14532d;
+        --fg-warn-soft: #fffbeb;
+        --fg-warn-border: #fde68a;
+        --fg-warn-text: #78350f;
+        --fg-radius-lg: 20px;
+        --fg-radius-md: 14px;
+        --fg-radius-sm: 10px;
+        --fg-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+
+        font-family: var(--fg-font);
+        color: var(--fg-text);
+        max-width: 820px;
         margin: 40px auto;
-        padding: 0 16px;
-        color: #222;
+        padding: 0 16px 56px;
       }
-      h1 {
-        font-size: 20px;
-      }
-      label {
-        display: block;
-        margin-top: 14px;
-        font-weight: bold;
-        font-size: 14px;
-      }
-      input[type="text"],
-      textarea {
-        width: 100%;
+      .fitness-generator,
+      .fitness-generator * {
         box-sizing: border-box;
-        padding: 8px;
-        margin-top: 4px;
-        font-size: 14px;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-      }
-      textarea {
-        height: 70px;
-        resize: vertical;
       }
 
-      input::placeholder,
-      textarea::placeholder {
-        color: #9ca3af;
+      /* ---- 헤더 ---- */
+      .fitness-generator .fg-header {
+        margin-bottom: 20px;
+      }
+      .fitness-generator .fg-eyebrow {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--fg-accent);
+        background: var(--fg-accent-soft);
+        padding: 4px 10px;
+        border-radius: 999px;
+        margin-bottom: 10px;
+      }
+      .fitness-generator .fg-title {
+        font-size: 21px;
+        font-weight: 700;
+        margin: 0;
+        color: var(--fg-primary);
       }
 
-      .row {
-        display: flex;
-        gap: 16px;
+      /* ---- 카드 셸 ---- */
+      .fitness-generator .fg-shell {
+        background: var(--fg-surface);
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-lg);
+        box-shadow: var(--fg-shadow-sm);
+        padding: 28px;
+      }
+
+      /* ---- 폼 공통 ---- */
+      .fitness-generator .fg-field {
+        margin-top: 18px;
+      }
+      .fitness-generator .fg-field:first-child {
+        margin-top: 0;
+      }
+      .fitness-generator .fg-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--fg-text);
+        margin-bottom: 6px;
+      }
+      .fitness-generator .fg-required {
+        color: var(--fg-danger);
+        margin-left: 2px;
+      }
+      .fitness-generator .fg-hint {
+        font-size: 12px;
+        color: var(--fg-text-muted);
+        margin-top: 6px;
+        line-height: 1.5;
+      }
+
+      /* ---- 접이식 토글 (회원 정보 추가하기) ---- */
+      .fitness-generator .fg-collapse-toggle {
+        display: inline-flex;
         align-items: center;
-        margin-top: 14px;
-      }
-      button {
-        padding: 10px 20px;
-        font-size: 15px;
-        background: #2563eb;
-        color: white;
+        gap: 7px;
+        background: none;
         border: none;
-        border-radius: 6px;
+        padding: 4px 0;
+        margin: 0;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--fg-accent);
         cursor: pointer;
       }
-      button:disabled {
-        background: #93a3b8;
-        cursor: default;
+      .fitness-generator .fg-collapse-toggle:hover {
+        text-decoration: underline;
       }
-      #submitBtn {
-        margin-top: 20px;
+      .fitness-generator .fg-collapse-icon {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(-45deg);
+        transition: transform 0.15s ease;
       }
-      #status {
-        margin-top: 12px;
-        font-size: 13px;
-        color: #555;
+      .fitness-generator .fg-collapse-toggle[aria-expanded="true"]
+        .fg-collapse-icon {
+        transform: rotate(45deg);
       }
-      #resultMeta {
-        margin-top: 20px;
-        font-size: 12px;
-        color: #777;
+      .fitness-generator .fg-collapse-panel {
+        display: none;
+        margin-top: 14px;
       }
-      .error {
-        color: #c0392b;
+      .fitness-generator .fg-collapse-panel.open {
+        display: block;
+      }
+      .fitness-generator .fg-collapse-panel .fg-field:first-child {
+        margin-top: 0;
       }
 
-      .article-toolbar {
-        margin-top: 20px;
-        display: none;
+      .fitness-generator .fg-input,
+      .fitness-generator .fg-textarea,
+      .fitness-generator .fg-select {
+        width: 100%;
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--fg-text);
+        background: var(--fg-surface);
+        border: 1px solid var(--fg-border-strong);
+        border-radius: var(--fg-radius-sm);
+        padding: 11px 14px;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
       }
-      .article-toolbar button {
-        background: #16a34a;
-        padding: 8px 16px;
+      .fitness-generator .fg-textarea {
+        min-height: 78px;
+        line-height: 1.6;
+        resize: vertical;
+      }
+      .fitness-generator .fg-input::placeholder,
+      .fitness-generator .fg-textarea::placeholder {
+        color: var(--fg-text-faint);
+      }
+      .fitness-generator .fg-input:focus,
+      .fitness-generator .fg-textarea:focus,
+      .fitness-generator .fg-select:focus {
+        outline: none;
+        border-color: var(--fg-accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      }
+
+      /* ---- 세그먼트 탭 (생성 유형) ---- */
+      .fitness-generator .fg-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 5px;
+        background: var(--fg-surface-muted);
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-md);
+      }
+      .fitness-generator .fg-tab {
+        position: relative;
+        display: block;
+        text-align: left;
+        padding: 12px 14px;
+        border-radius: calc(var(--fg-radius-md) - 5px);
+        cursor: pointer;
+        transition:
+          background 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+      .fitness-generator .fg-tab input[type="radio"] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .fitness-generator .fg-tab-title {
+        display: block;
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--fg-text-muted);
+      }
+      .fitness-generator .fg-tab-desc {
+        display: block;
+        font-size: 11.5px;
+        font-weight: 400;
+        color: var(--fg-text-faint);
+        margin-top: 3px;
+        line-height: 1.45;
+      }
+      .fitness-generator .fg-tab:hover {
+        background: rgba(255, 255, 255, 0.7);
+      }
+      .fitness-generator .fg-tab.selected {
+        background: var(--fg-surface);
+        box-shadow: var(--fg-shadow-sm);
+      }
+      .fitness-generator .fg-tab.selected .fg-tab-title {
+        color: var(--fg-primary);
+      }
+      .fitness-generator .fg-tab.selected .fg-tab-desc {
+        color: var(--fg-text-muted);
+      }
+      @media (max-width: 480px) {
+        .fitness-generator .fg-tab-desc {
+          display: none;
+        }
+      }
+
+      /* ---- pill 토글 (컨셉 / 회원 목적) ---- */
+      .fitness-generator .fg-pill-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .fitness-generator .fg-pill {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
         font-size: 13px;
+        font-weight: 500;
+        color: var(--fg-text-muted);
+        background: var(--fg-surface);
+        border: 1px solid var(--fg-border-strong);
+        border-radius: 999px;
+        padding: 8px 16px;
+        cursor: pointer;
+        transition:
+          border-color 0.15s ease,
+          background 0.15s ease,
+          color 0.15s ease;
+      }
+      .fitness-generator .fg-pill input[type="radio"] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .fitness-generator .fg-pill:hover {
+        border-color: var(--fg-text-faint);
+      }
+      .fitness-generator .fg-pill:has(input:checked) {
+        border-color: var(--fg-primary);
+        background: var(--fg-primary);
+        color: #fff;
+      }
+
+      /* ---- 옵션 카드 (카드뉴스 이미지 생성) ---- */
+      .fitness-generator .fg-option-card {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 16px;
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-sm);
+        background: var(--fg-surface-muted);
+        cursor: pointer;
+        transition:
+          border-color 0.15s ease,
+          background 0.15s ease;
+      }
+      .fitness-generator .fg-option-card input[type="checkbox"] {
+        margin-top: 2px;
+        width: 16px;
+        height: 16px;
+        accent-color: var(--fg-primary);
+        flex-shrink: 0;
+      }
+      .fitness-generator .fg-option-card-title {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--fg-text);
+        display: block;
+      }
+      .fitness-generator .fg-option-card-desc {
+        font-size: 12px;
+        color: var(--fg-text-muted);
+        display: block;
+        margin-top: 2px;
+        line-height: 1.5;
+      }
+      .fitness-generator .fg-option-card:has(input:checked) {
+        border-color: var(--fg-accent);
+        background: var(--fg-accent-soft);
+      }
+
+      /* ---- 버튼 ---- */
+      .fitness-generator .fg-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: var(--fg-radius-sm);
+        padding: 11px 20px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition:
+          background 0.15s ease,
+          border-color 0.15s ease,
+          color 0.15s ease;
+      }
+      .fitness-generator .fg-btn:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .fitness-generator .fg-btn-primary {
+        background: var(--fg-primary);
+        color: #fff;
+      }
+      .fitness-generator .fg-btn-primary:hover:not(:disabled) {
+        background: var(--fg-primary-hover);
+      }
+      .fitness-generator .fg-btn-secondary {
+        background: var(--fg-surface);
+        color: var(--fg-text);
+        border-color: var(--fg-border-strong);
+      }
+      .fitness-generator .fg-btn-secondary:hover:not(:disabled) {
+        border-color: var(--fg-text-faint);
+      }
+      .fitness-generator .fg-btn-sm {
+        padding: 6px 12px;
+        font-size: 12.5px;
+        border-radius: 8px;
+      }
+      .fitness-generator .fg-btn-block {
+        width: 100%;
+        margin-top: 24px;
+        padding: 13px 20px;
+      }
+      .fitness-generator .fg-btn + .fg-btn {
+        margin-left: 8px;
+      }
+
+      .fitness-generator #status {
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--fg-text-muted);
+      }
+      .fitness-generator #resultMeta {
+        margin-top: 18px;
+        font-size: 12px;
+        color: var(--fg-text-faint);
+      }
+      .fitness-generator .error {
+        color: var(--fg-danger);
+      }
+
+      .fitness-generator .article-toolbar {
+        margin-top: 18px;
+        display: none;
       }
 
       /* 지침에서 정한 원문 형식(제목 : / 인용구) / 썸네일 / 시설위치지도사진)을
      그대로 노출한다. 텍스트를 가공/스타일링하지 않고, 이미지만 해당 줄
      아래에 추가로 삽입한다. */
-      #article {
-        margin-top: 12px;
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 24px 28px;
+      .fitness-generator #article {
+        margin-top: 14px;
+        background: var(--fg-surface);
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-lg);
+        padding: 26px 28px;
         display: none;
         white-space: pre-wrap;
         font-size: 14.5px;
         line-height: 1.8;
+        color: var(--fg-text);
       }
-      #article p {
+      .fitness-generator #article p {
         margin: 0 0 18px 0;
       }
-      #article p.section-start {
+      .fitness-generator #article p.section-start {
         margin-top: 30px;
+        font-weight: 600;
+        color: var(--fg-primary);
       }
-      .image-wrap {
-        margin: 10px 0 22px 0;
+      .fitness-generator .image-wrap {
+        margin: 12px 0 24px 0;
       }
-      .image-wrap img {
+      .fitness-generator .image-wrap img {
         max-width: 100%;
         max-width: 420px;
         aspect-ratio: 1 / 1;
         object-fit: cover;
-        border-radius: 8px;
+        border-radius: var(--fg-radius-md);
+        border: 1px solid var(--fg-border);
         display: block;
       }
-      .image-wrap .recommended-text {
+      .fitness-generator .image-wrap .recommended-text {
         margin-top: 8px;
-        padding: 8px 12px;
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        border-radius: 6px;
-        font-size: 13px;
-        color: #92400e;
+        padding: 10px 12px;
+        background: var(--fg-warn-soft);
+        border: 1px solid var(--fg-warn-border);
+        border-radius: var(--fg-radius-sm);
+        font-size: 12.5px;
+        color: var(--fg-warn-text);
         max-width: 420px;
       }
-      .image-wrap .download-link {
+      .fitness-generator .image-wrap .download-link {
         display: inline-block;
-        margin-top: 6px;
+        margin-top: 8px;
         font-size: 12px;
-        color: #2563eb;
+        font-weight: 600;
+        color: var(--fg-accent);
         text-decoration: none;
       }
-      .image-wrap .download-link:hover {
+      .fitness-generator .image-wrap .download-link:hover {
         text-decoration: underline;
       }
 
-      .saved-toggle {
-        margin-top: 32px;
+      /* ---- 운동·식단 프로그램(fitness_plan) 리포트형 렌더링 ---- */
+      /* #article의 white-space: pre-wrap은 renderArticle(줄 단위 출력)을 위한 것이라,
+     카드형 마크업에서는 태그 사이 공백이 빈 줄처럼 보이지 않도록 normal로 되돌린다. */
+      .fitness-generator .plan-result {
+        white-space: normal;
       }
-      .saved-toggle button {
-        background: #6b7280;
-        padding: 8px 16px;
+      .fitness-generator .plan-section {
+        background: var(--fg-surface);
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-md);
+        padding: 18px 20px;
+      }
+      .fitness-generator .plan-section + .plan-section {
+        margin-top: 14px;
+      }
+      .fitness-generator .plan-section-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .fitness-generator .plan-section-number {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--fg-primary);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .fitness-generator .plan-section-head h3 {
+        margin: 0;
+        font-size: 15px;
+        color: var(--fg-primary);
+      }
+      .fitness-generator .plan-section-body {
+        font-size: 14px;
+        color: var(--fg-text);
+      }
+      .fitness-generator #article .plan-section-body p {
+        margin: 0 0 10px 0;
+        line-height: 1.7;
+      }
+      .fitness-generator #article .plan-section-body p:last-child {
+        margin-bottom: 0;
+      }
+
+      .fitness-generator .member-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 10px;
+      }
+      .fitness-generator .member-card {
+        background: var(--fg-surface-muted);
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-sm);
+        padding: 10px 12px;
+      }
+      .fitness-generator .member-card .member-label {
+        display: block;
+        font-size: 11.5px;
+        color: var(--fg-text-muted);
+        margin-bottom: 4px;
+      }
+      .fitness-generator .member-card .member-value {
+        display: block;
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--fg-primary);
+      }
+
+      .fitness-generator .meal-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .fitness-generator .meal-card {
+        background: var(--fg-surface-muted);
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-sm);
+        padding: 14px;
+      }
+      .fitness-generator .meal-card strong {
+        display: block;
+        font-size: 14px;
+        color: var(--fg-primary);
+        margin-bottom: 6px;
+      }
+      .fitness-generator #article .meal-card p {
+        margin: 0 0 6px 0;
+        font-size: 13.5px;
+        line-height: 1.6;
+      }
+      .fitness-generator #article .meal-card p:last-child {
+        margin-bottom: 0;
+      }
+      .fitness-generator .meal-card .meal-reason,
+      .fitness-generator .meal-card .meal-alt {
+        font-size: 12.5px;
+        color: var(--fg-text-muted);
+        background: var(--fg-surface);
+        border: 1px solid var(--fg-border);
+        border-radius: 8px;
+        padding: 6px 8px;
+      }
+      .fitness-generator .meal-card .meal-alt {
+        margin-top: 4px;
+      }
+
+      .fitness-generator .plan-table-wrap {
+        overflow-x: auto;
+        margin: 8px 0;
+      }
+      .fitness-generator .plan-table {
+        border-collapse: collapse;
+        width: 100%;
         font-size: 13px;
       }
-      #savedList {
+      .fitness-generator .plan-table th,
+      .fitness-generator .plan-table td {
+        border: 1px solid var(--fg-border);
+        padding: 8px 10px;
+        text-align: left;
+        line-height: 1.5;
+        white-space: nowrap;
+      }
+      .fitness-generator .plan-table thead th {
+        background: var(--fg-surface-muted);
+        color: var(--fg-primary);
+        font-weight: 700;
+      }
+      .fitness-generator .plan-table td:first-child,
+      .fitness-generator .plan-table th:first-child {
+        font-weight: 700;
+      }
+
+      .fitness-generator .feedback-list,
+      .fitness-generator .check-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .fitness-generator .feedback-card {
+        background: var(--fg-warn-soft);
+        border: 1px solid var(--fg-warn-border);
+        border-radius: var(--fg-radius-sm);
+        padding: 10px 12px;
+        font-size: 13.5px;
+        line-height: 1.6;
+        color: var(--fg-warn-text);
+      }
+      .fitness-generator .check-item {
+        background: var(--fg-success-soft);
+        border: 1px solid var(--fg-success-border);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13.5px;
+        line-height: 1.5;
+        color: var(--fg-success-text);
+      }
+
+      .fitness-generator .saved-toggle {
+        margin-top: 28px;
+      }
+      .fitness-generator #savedList {
         margin-top: 12px;
         display: none;
       }
-      .saved-item {
-        padding: 10px 14px;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
+      .fitness-generator .saved-item {
+        padding: 12px 14px;
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-sm);
         margin-bottom: 8px;
         font-size: 13px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+        background: var(--fg-surface);
+        transition: border-color 0.15s ease;
       }
-      .saved-item-main {
+      .fitness-generator .saved-item-main {
         cursor: pointer;
         flex: 1;
       }
-      .saved-item:hover {
-        background: #f3f4f6;
+      .fitness-generator .saved-item:hover {
+        border-color: var(--fg-text-faint);
       }
-      .saved-item .saved-date {
-        color: #999;
+      .fitness-generator .saved-item .saved-date {
+        color: var(--fg-text-faint);
         font-size: 11px;
         margin-right: 8px;
       }
-      .saved-item .saved-delete-btn {
+      .fitness-generator .saved-item .saved-delete-btn {
         flex-shrink: 0;
-        border: 1px solid #f3c2c2;
-        background: #fff;
-        color: #d33;
-        border-radius: 6px;
-        padding: 4px 10px;
+        font-family: inherit;
+        border: 1px solid var(--fg-danger-border);
+        background: var(--fg-surface);
+        color: var(--fg-danger);
+        border-radius: 8px;
+        padding: 5px 10px;
         font-size: 12px;
         cursor: pointer;
       }
-      .saved-item .saved-delete-btn:hover {
-        background: #fdecec;
+      .fitness-generator .saved-item .saved-delete-btn:hover {
+        background: var(--fg-danger-soft);
       }
-      .saved-empty {
+      .fitness-generator .saved-empty {
         font-size: 13px;
-        color: #888;
+        color: var(--fg-text-faint);
+      }
+
+      /* ---- 트레이너 설정 패널 ---- */
+      .fitness-generator #trainerSection {
+        display: none;
+      }
+      .fitness-generator #fitnessPlanSection {
+        display: none;
+      }
+      .fitness-generator .fg-panel {
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-md);
+        background: var(--fg-surface-muted);
+      }
+      .fitness-generator .fg-panel-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .fitness-generator .fg-panel-row .fg-select {
+        flex: 1;
+      }
+      .fitness-generator .fg-panel-body {
+        margin-top: 14px;
+      }
+      .fitness-generator .fg-section-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--fg-text-faint);
+        margin: 18px 0 8px;
+      }
+      .fitness-generator .fg-section-title:first-child {
+        margin-top: 0;
+      }
+      .fitness-generator .fg-divider {
+        border: none;
+        border-top: 1px solid var(--fg-border);
+        margin: 16px 0;
+      }
+      .fitness-generator .fg-form-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      @media (max-width: 480px) {
+        .fitness-generator .fg-panel-row {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .fitness-generator .fg-panel-row .fg-btn {
+          width: 100%;
+        }
+      }
+
+      .fitness-generator #trainerManage {
+        display: none;
+      }
+      .fitness-generator .trainer-item {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--fg-border);
+        border-radius: var(--fg-radius-sm);
+        background: var(--fg-surface);
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+      .fitness-generator .trainer-item:last-child {
+        margin-bottom: 0;
+      }
+      .fitness-generator .trainer-item .trainer-item-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .fitness-generator .trainer-item .trainer-item-name {
+        font-weight: 700;
+        color: var(--fg-text);
+      }
+      .fitness-generator .trainer-item .trainer-item-features {
+        color: var(--fg-text-muted);
+        margin-top: 3px;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
+      .fitness-generator .trainer-item .trainer-item-actions {
+        flex-shrink: 0;
+        display: flex;
+        gap: 6px;
+      }
+      .fitness-generator .trainer-item-actions button {
+        font-family: inherit;
+        font-size: 11.5px;
+        padding: 5px 10px;
+        border-radius: 7px;
+        border: 1px solid var(--fg-border-strong);
+        background: var(--fg-surface);
+        color: var(--fg-text);
+        cursor: pointer;
+      }
+      .fitness-generator .trainer-item-actions button:hover {
+        border-color: var(--fg-text-faint);
+      }
+      .fitness-generator .trainer-item-actions .trainer-delete-btn {
+        border-color: var(--fg-danger-border);
+        color: var(--fg-danger);
+      }
+      .fitness-generator .trainer-item-actions .trainer-delete-btn:hover {
+        background: var(--fg-danger-soft);
+      }
+      .fitness-generator .trainer-empty {
+        font-size: 12.5px;
+        color: var(--fg-text-faint);
+        padding: 4px 2px;
+      }
+
+      @media (max-width: 600px) {
+        .fitness-generator {
+          margin: 20px auto;
+          padding: 0 12px 40px;
+        }
+        .fitness-generator .fg-shell {
+          padding: 18px;
+          border-radius: 16px;
+        }
       }
     </style>
   </head>
   <body>
-    <h1>헬스장 & 피트니스 블로그 생성기</h1>
-
-    <form id="form">
-      <label>시설 정보</label>
-      <textarea
-        id="gym_info"
-        required
-        placeholder="센터명, 위치, 주요 프로그램, 시설 특징, 운영 장점 등을 입력해 주세요. 예) 경산 ○○피트니스, 1:1 PT, 다이어트 프로그램, 넓은 주차장, 초보자 상담 가능"
-      ></textarea>
-
-      <label>키워드</label>
-      <input
-        type="text"
-        id="keyword"
-        required
-        placeholder="예: 경산 PT, 대구 헬스장, 강남 다이어트 운동"
-      />
-
-      <label>개별 조건</label>
-      <textarea
-        id="priors"
-        placeholder="이번 글에서 강조할 내용을 입력해 주세요. 예) 초보자 대상, 체형교정 중심, 직장인 운동 루틴, 다이어트 상담 유도"
-      ></textarea>
-
-      <div class="row">
-        <label style="margin: 0">컨셉</label>
-        <label style="margin: 0; font-weight: normal"
-          ><input type="radio" name="concept" value="default" checked />
-          일반</label
-        >
-        <label style="margin: 0; font-weight: normal"
-          ><input type="radio" name="concept" value="trainer" /> 트레이너
-          1인칭</label
-        >
+    <div class="fitness-generator">
+      <div class="fg-header">
+        <span class="fg-eyebrow">AI 콘텐츠 생성</span>
+        <h1 class="fg-title">헬스장 & 피트니스 블로그 생성기</h1>
       </div>
 
-      <div class="row">
-        <label style="margin: 0; font-weight: normal"
-          ><input type="checkbox" id="generate_images" checked /> 카드뉴스
-          이미지도 생성 (표지 1장 + 내지 1장, 시간이 더 걸립니다)</label
+      <div class="fg-shell">
+        <form id="form">
+          <div class="fg-field">
+            <span class="fg-label">생성 유형</span>
+            <!-- 세그먼트 탭: 라디오는 화면에서 숨기고 label 전체를 탭처럼 클릭한다.
+                 JS가 선택된 탭에 "selected" 클래스를 토글하므로 클래스명은 유지한다. -->
+            <div class="fg-tabs" id="generationTypeRow">
+              <label class="fg-tab" id="genTypeCardBlogPost">
+                <input
+                  type="radio"
+                  name="generation_type"
+                  value="blog_post"
+                  checked
+                />
+                <span class="fg-tab-title">블로그 글 생성</span>
+                <span class="fg-tab-desc"
+                  >네이버 블로그용 원고와 카드뉴스 이미지를 생성합니다.</span
+                >
+              </label>
+              <label class="fg-tab" id="genTypeCardFitnessPlan">
+                <input
+                  type="radio"
+                  name="generation_type"
+                  value="fitness_plan"
+                />
+                <span class="fg-tab-title">운동·식단 프로그램 생성</span>
+                <span class="fg-tab-desc"
+                  >회원 목적에 맞춘 1주일 운동·식단 프로그램을 생성합니다.</span
+                >
+              </label>
+            </div>
+          </div>
+
+          <div id="blogFieldsSection">
+            <div class="fg-field">
+              <label class="fg-label" id="gymInfoLabel" for="gym_info"
+                >시설 정보</label
+              >
+              <textarea
+                class="fg-textarea"
+                id="gym_info"
+                required
+                placeholder="센터명, 위치, 주요 프로그램, 시설 특징, 운영 장점 등을 입력해 주세요. 예) 경산 ○○피트니스, 1:1 PT, 다이어트 프로그램, 넓은 주차장, 초보자 상담 가능"
+              ></textarea>
+            </div>
+
+            <div class="fg-field">
+              <label class="fg-label" id="keywordLabel" for="keyword"
+                >키워드</label
+              >
+              <input
+                class="fg-input"
+                type="text"
+                id="keyword"
+                required
+                placeholder="예: 경산 PT, 대구 헬스장, 강남 다이어트 운동"
+              />
+            </div>
+
+            <div class="fg-field">
+              <label class="fg-label" id="priorsLabel" for="priors"
+                >개별 조건</label
+              >
+              <textarea
+                class="fg-textarea"
+                id="priors"
+                placeholder="이번 글에서 강조할 내용을 입력해 주세요. 예) 초보자 대상, 체형교정 중심, 직장인 운동 루틴, 다이어트 상담 유도"
+              ></textarea>
+            </div>
+
+            <div class="fg-field" id="conceptRow">
+              <span class="fg-label">컨셉</span>
+              <!-- pill 토글: 라디오는 숨기고, 선택 상태는 :has(input:checked)로만 표시한다(JS 변경 없음). -->
+              <div class="fg-pill-group">
+                <label class="fg-pill">
+                  <input
+                    type="radio"
+                    name="concept"
+                    value="default"
+                    checked
+                  />
+                  일반
+                </label>
+                <label class="fg-pill">
+                  <input type="radio" name="concept" value="trainer" />
+                  트레이너 1인칭
+                </label>
+              </div>
+            </div>
+
+            <!-- 트레이너 관리를 "설정 패널" 느낌으로 정리: 선택 select + 관리 버튼 한 줄,
+                 그 아래 목록/폼은 구분선(fg-divider)과 섹션 타이틀로 나눈다. -->
+            <div id="trainerSection" class="fg-panel">
+              <div class="fg-panel-row">
+                <select class="fg-select" id="trainerSelect">
+                  <option value="">직접 입력 (프로필 없음)</option>
+                </select>
+                <button
+                  type="button"
+                  class="fg-btn fg-btn-secondary fg-btn-sm"
+                  id="trainerManageToggle"
+                >
+                  트레이너 관리
+                </button>
+              </div>
+
+              <div id="trainerManage" class="fg-panel-body">
+                <div id="trainerList"></div>
+
+                <hr class="fg-divider" />
+
+                <div id="trainerForm">
+                  <div class="fg-section-title">트레이너 이름</div>
+                  <input
+                    class="fg-input"
+                    type="text"
+                    id="trainerFormName"
+                    placeholder="예: 김민준 트레이너"
+                  />
+                  <div class="fg-section-title">담당 운동/프로그램</div>
+                  <textarea
+                    class="fg-textarea"
+                    id="trainerFormFeatures"
+                    placeholder="예: 웨이트 트레이닝 1:1 PT 담당, 체형교정 위주 지도, 초보자 그룹수업 진행"
+                  ></textarea>
+                  <div class="fg-form-actions" id="trainerFormActions">
+                    <button
+                      type="button"
+                      class="fg-btn fg-btn-primary fg-btn-sm"
+                      id="trainerFormSaveBtn"
+                    >
+                      추가
+                    </button>
+                    <button
+                      type="button"
+                      class="fg-btn fg-btn-secondary fg-btn-sm"
+                      id="trainerFormCancelBtn"
+                      style="display: none"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 옵션 카드: 체크 시 fg-option-card:has(input:checked)로 border/배경만 강조한다. -->
+            <div class="fg-field" id="imageGenRow">
+              <label class="fg-option-card">
+                <input type="checkbox" id="generate_images" checked />
+                <span>
+                  <span class="fg-option-card-title"
+                    >카드뉴스 이미지도 생성</span
+                  >
+                  <span class="fg-option-card-desc"
+                    >표지 1장 + 내지 1장, 시간이 더 걸립니다</span
+                  >
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div id="fitnessPlanSection">
+            <div class="fg-field">
+              <span class="fg-label"
+                >선택한 회원 목적<span class="fg-required">*</span></span
+              >
+              <div class="fg-pill-group">
+                <label class="fg-pill">
+                  <input
+                    type="radio"
+                    name="member_goal_type"
+                    value="A 타입(다이어트)"
+                  />
+                  A 타입(다이어트)
+                </label>
+                <label class="fg-pill">
+                  <input
+                    type="radio"
+                    name="member_goal_type"
+                    value="B 타입(근성장)"
+                  />
+                  B 타입(근성장)
+                </label>
+                <label class="fg-pill">
+                  <input
+                    type="radio"
+                    name="member_goal_type"
+                    value="C 타입(린매스업)"
+                  />
+                  C 타입(린매스업)
+                </label>
+              </div>
+            </div>
+            <div class="fg-field">
+              <!-- 회원 목적 외 나머지 항목은 전부 선택값이라, 기본은 접어두고
+                   필요할 때만 펼쳐서 폼이 한눈에 짧아 보이게 한다. -->
+              <button
+                type="button"
+                class="fg-collapse-toggle"
+                id="memberDetailsToggle"
+                aria-expanded="false"
+                aria-controls="memberDetailsPanel"
+              >
+                <span class="fg-collapse-icon" aria-hidden="true"></span>
+                <span id="memberDetailsToggleLabel"
+                  >회원 정보 추가하기 (선택)</span
+                >
+              </button>
+
+              <div class="fg-collapse-panel" id="memberDetailsPanel">
+                <div class="fg-field">
+                  <label class="fg-label" for="member_gender_age"
+                    >성별/나이</label
+                  >
+                  <input
+                    class="fg-input"
+                    type="text"
+                    id="member_gender_age"
+                    placeholder="예) 남성 / 31세"
+                  />
+                </div>
+                <div class="fg-field">
+                  <label class="fg-label" for="member_weight">체중</label>
+                  <input
+                    class="fg-input"
+                    type="text"
+                    id="member_weight"
+                    placeholder="예) 75kg"
+                  />
+                </div>
+                <div class="fg-field">
+                  <label class="fg-label" for="member_muscle_mass"
+                    >골격근량</label
+                  >
+                  <input
+                    class="fg-input"
+                    type="text"
+                    id="member_muscle_mass"
+                    placeholder="예) 32kg"
+                  />
+                </div>
+                <div class="fg-field">
+                  <label class="fg-label" for="member_body_fat"
+                    >체지방률</label
+                  >
+                  <input
+                    class="fg-input"
+                    type="text"
+                    id="member_body_fat"
+                    placeholder="예) 24%"
+                  />
+                </div>
+                <div class="fg-field">
+                  <label class="fg-label" for="member_bmr"
+                    >기초대사량(BMR)</label
+                  >
+                  <input
+                    class="fg-input"
+                    type="text"
+                    id="member_bmr"
+                    placeholder="예) 1,600 kcal"
+                  />
+                </div>
+                <div class="fg-field">
+                  <label class="fg-label" for="member_tdee"
+                    >활동대사량(TDEE)</label
+                  >
+                  <input
+                    class="fg-input"
+                    type="text"
+                    id="member_tdee"
+                    placeholder="예) 2,300 kcal"
+                  />
+                </div>
+                <div class="fg-field">
+                  <label class="fg-label" for="member_available_days"
+                    >일주일 출석 가능 횟수</label
+                  >
+                  <input
+                    class="fg-input"
+                    type="text"
+                    id="member_available_days"
+                    placeholder="예) 주 3회 / 월, 수, 금"
+                  />
+                </div>
+                <div class="fg-field">
+                  <label class="fg-label" for="member_injury_notes"
+                    >과거 부상 이력 및 특이사항</label
+                  >
+                  <textarea
+                    class="fg-textarea"
+                    id="member_injury_notes"
+                    placeholder="예) 허리 디스크 초기 증상 있음, 닭가슴살 쉽게 질려함, 야식이 잦음"
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            class="fg-btn fg-btn-primary fg-btn-block"
+            id="submitBtn"
+          >
+            블로그 글 생성하기
+          </button>
+        </form>
+      </div>
+
+      <div id="status"></div>
+
+      <div class="article-toolbar" id="articleToolbar">
+        <button type="button" class="fg-btn fg-btn-secondary" id="copyBtn">
+          글 복사
+        </button>
+        <button
+          type="button"
+          class="fg-btn fg-btn-secondary"
+          id="downloadImagesBtn"
+          style="display: none"
         >
+          이미지 저장
+        </button>
+        <button
+          type="button"
+          class="fg-btn fg-btn-secondary"
+          id="boardWriteBtn"
+          style="display: none"
+        >
+          아임웹 게시판 글쓰기 페이지로 이동
+        </button>
+        <div
+          id="publishHint"
+          style="display: none; margin-top: 8px; font-size: 12px; color: #777"
+        >
+          아임웹 Open API가 게시판 자동 등록을 지원하지 않아, 글을 복사한 뒤
+          게시판 글쓰기 페이지에 직접 붙여넣어야 합니다.
+        </div>
       </div>
 
-      <button type="submit" id="submitBtn">블로그 글 생성하기</button>
-    </form>
+      <div id="article"></div>
+      <div id="resultMeta"></div>
 
-    <div id="status"></div>
-
-    <div class="article-toolbar" id="articleToolbar">
-      <button type="button" id="copyBtn">글 복사</button>
-      <button
-        type="button"
-        id="boardWriteBtn"
-        style="display: none; background: #0891b2"
-      >
-        아임웹 게시판 글쓰기 페이지로 이동
-      </button>
-      <div
-        id="publishHint"
-        style="display: none; margin-top: 8px; font-size: 12px; color: #777"
-      >
-        아임웹 Open API가 게시판 자동 등록을 지원하지 않아, 글을 복사한 뒤
-        게시판 글쓰기 페이지에 직접 붙여넣어야 합니다.
+      <div class="saved-toggle">
+        <button
+          type="button"
+          class="fg-btn fg-btn-secondary"
+          id="viewSavedBtn"
+        >
+          저장된 글 목록 보기
+        </button>
       </div>
+      <div id="savedList"></div>
     </div>
-
-    <div id="article"></div>
-    <div id="resultMeta"></div>
-
-    <div class="saved-toggle">
-      <button type="button" id="viewSavedBtn">저장된 글 목록 보기</button>
-    </div>
-    <div id="savedList"></div>
 
     <script>
       const form = document.getElementById("form");
@@ -275,11 +1166,354 @@
       const metaEl = document.getElementById("resultMeta");
       const submitBtn = document.getElementById("submitBtn");
       const copyBtn = document.getElementById("copyBtn");
+      const downloadImagesBtn = document.getElementById("downloadImagesBtn");
       const boardWriteBtn = document.getElementById("boardWriteBtn");
       const publishHint = document.getElementById("publishHint");
 
       let currentContent = "";
+      let currentImages = [];
       let appConfig = { storage_available: true, board_write_url: null };
+
+      // 실제로 내려받을 수 있는 이미지(base64/url이 있는 것)가 하나라도 있을 때만
+      // 툴바의 "이미지 저장" 버튼을 보여준다.
+      function updateDownloadImagesButtonVisibility() {
+        const hasDownloadable = currentImages.some(
+          (img) => img.image_base64 || img.image_url,
+        );
+        downloadImagesBtn.style.display = hasDownloadable ? "inline-block" : "none";
+      }
+
+      downloadImagesBtn.addEventListener("click", () => {
+        const downloadable = currentImages.filter(
+          (img) => img.image_base64 || img.image_url,
+        );
+
+        // 브라우저가 여러 다운로드를 한꺼번에 막는 경우가 있어 살짝 간격을 두고 순서대로 받는다.
+        downloadable.forEach((img, index) => {
+          setTimeout(() => {
+            const src = img.image_base64
+              ? "data:image/png;base64," + img.image_base64
+              : img.image_url;
+            const link = document.createElement("a");
+            link.href = src;
+            link.download = img.filename || `image-${index + 1}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }, index * 300);
+        });
+      });
+
+      // exercise_program/diet_guide는 UI에서 더 이상 선택할 수 없지만, fitness_plan
+      // 도입 이전에 저장된 글의 목록 라벨을 위해 남겨둔다.
+      const GENERATION_TYPE_LABELS = {
+        blog_post: "블로그 글",
+        fitness_plan: "운동·식단 프로그램",
+        exercise_program: "운동 프로그램",
+        diet_guide: "식단 가이드",
+      };
+
+      // 저장 목록 제목 뒤에 붙일 컨셉 표시("- 일반" / "- ○○○ 트레이너"). 컨셉 개념은
+      // blog_post 전용이라 그 외 생성 유형에는 아무것도 붙이지 않는다.
+      function formatConceptSuffix(post) {
+        if (post.generation_type && post.generation_type !== "blog_post") {
+          return "";
+        }
+        if (post.concept === "trainer") {
+          // trainer_name이 없는 경우는 "직접 입력"으로 생성했거나, 이 필드가
+          // 생기기 전에 저장된 과거 글이다.
+          return post.trainer_name || "트레이너 1인칭";
+        }
+        return "일반";
+      }
+
+      // ---- 생성 유형 선택 (카드형) ----
+      const blogFieldsSection = document.getElementById("blogFieldsSection");
+      const conceptRow = document.getElementById("conceptRow");
+      const imageGenRow = document.getElementById("imageGenRow");
+      const fitnessPlanSection = document.getElementById("fitnessPlanSection");
+      const gymInfoEl = document.getElementById("gym_info");
+      const keywordEl = document.getElementById("keyword");
+      const genTypeCards = {
+        blog_post: document.getElementById("genTypeCardBlogPost"),
+        fitness_plan: document.getElementById("genTypeCardFitnessPlan"),
+      };
+
+      function updateGenerationTypeVisibility() {
+        const genType = document.querySelector(
+          "input[name=generation_type]:checked",
+        ).value;
+        const isBlogPost = genType === "blog_post";
+
+        Object.entries(genTypeCards).forEach(([value, card]) => {
+          card.classList.toggle("selected", value === genType);
+        });
+
+        // 블로그 글과 운동·식단 프로그램은 입력 항목 자체가 완전히 다르므로
+        // 라벨을 바꿔치기하지 않고 섹션 전체를 통째로 보이거나 숨긴다.
+        blogFieldsSection.style.display = isBlogPost ? "block" : "none";
+        fitnessPlanSection.style.display = isBlogPost ? "none" : "block";
+
+        // 블로그 글에만 필수인 입력이 운동·식단 프로그램 선택 시 제출을 막지 않도록
+        // required 속성을 선택 상태에 맞춰 켜고 끈다.
+        gymInfoEl.required = isBlogPost;
+        keywordEl.required = isBlogPost;
+
+        if (isBlogPost) {
+          updateTrainerSectionVisibility();
+        } else {
+          // 운동·식단 프로그램은 컨셉/트레이너와 무관하므로 항상 숨긴다.
+          trainerSection.style.display = "none";
+        }
+
+        submitBtn.textContent = `${GENERATION_TYPE_LABELS[genType] || "콘텐츠"} 생성하기`;
+
+        // 생성 유형을 바꾸면 이전 결과 미리보기를 지운다. 예를 들어 블로그 글을
+        // 생성해 본 뒤 운동·식단 프로그램으로 전환했는데 방금 만든 블로그 글이
+        // 화면 아래에 그대로 남아 있으면 안 되기 때문이다.
+        articleEl.style.display = "none";
+        articleEl.innerHTML = "";
+        articleToolbar.style.display = "none";
+        metaEl.textContent = "";
+        statusEl.textContent = "";
+        currentContent = "";
+        currentImages = [];
+        updateDownloadImagesButtonVisibility();
+      }
+
+      document
+        .querySelectorAll('input[name="generation_type"]')
+        .forEach((el) =>
+          el.addEventListener("change", updateGenerationTypeVisibility),
+        );
+
+      // ---- 회원 정보(선택 항목) 접기/펼치기 ----
+      // 회원 목적만 필수이고 나머지 회원 데이터는 전부 선택값이라, 기본은
+      // 접어두고 눌렀을 때만 펼쳐서 폼이 짧아 보이게 한다. 필드 자체는
+      // 숨겨져 있어도 DOM에 그대로 남아 있으므로 제출 payload 로직은
+      // 손댈 필요가 없다(펼치지 않고 비워둔 값은 그냥 빈 문자열로 전송됨).
+      const memberDetailsToggle = document.getElementById(
+        "memberDetailsToggle",
+      );
+      const memberDetailsPanel = document.getElementById(
+        "memberDetailsPanel",
+      );
+      const memberDetailsToggleLabel = document.getElementById(
+        "memberDetailsToggleLabel",
+      );
+
+      memberDetailsToggle.addEventListener("click", () => {
+        const isOpen = memberDetailsPanel.classList.toggle("open");
+        memberDetailsToggle.setAttribute("aria-expanded", String(isOpen));
+        memberDetailsToggleLabel.textContent = isOpen
+          ? "회원 정보 접기"
+          : "회원 정보 추가하기 (선택)";
+      });
+
+      // ---- 트레이너 프로필 관리 (브라우저 로컬 저장소) ----
+      // 운영 환경(Vercel)엔 파일 저장소가 없어 저장된 글도 서버에 남기지 않으므로,
+      // 트레이너 프로필도 서버가 아니라 브라우저에만 저장해 두고 요청 시 함께 보낸다.
+      const TRAINERS_STORAGE_KEY = "gymBlogTrainers";
+      const trainerSection = document.getElementById("trainerSection");
+      const trainerSelect = document.getElementById("trainerSelect");
+      const trainerManageToggle = document.getElementById(
+        "trainerManageToggle",
+      );
+      const trainerManage = document.getElementById("trainerManage");
+      const trainerListEl = document.getElementById("trainerList");
+      const trainerFormName = document.getElementById("trainerFormName");
+      const trainerFormFeatures = document.getElementById(
+        "trainerFormFeatures",
+      );
+      const trainerFormSaveBtn = document.getElementById(
+        "trainerFormSaveBtn",
+      );
+      const trainerFormCancelBtn = document.getElementById(
+        "trainerFormCancelBtn",
+      );
+
+      let editingTrainerId = null;
+
+      function loadTrainers() {
+        try {
+          const raw = localStorage.getItem(TRAINERS_STORAGE_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function saveTrainers(trainers) {
+        localStorage.setItem(TRAINERS_STORAGE_KEY, JSON.stringify(trainers));
+      }
+
+      function renderTrainerSelect() {
+        const trainers = loadTrainers();
+        const previousValue = trainerSelect.value;
+
+        trainerSelect.innerHTML =
+          '<option value="">직접 입력 (프로필 없음)</option>';
+        trainers.forEach((trainer) => {
+          const opt = document.createElement("option");
+          opt.value = trainer.id;
+          opt.textContent = trainer.name;
+          trainerSelect.appendChild(opt);
+        });
+
+        if (trainers.some((t) => String(t.id) === previousValue)) {
+          trainerSelect.value = previousValue;
+        }
+      }
+
+      function renderTrainerList() {
+        const trainers = loadTrainers();
+        trainerListEl.innerHTML = "";
+
+        if (trainers.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "trainer-empty";
+          empty.textContent = "등록된 트레이너가 없습니다.";
+          trainerListEl.appendChild(empty);
+          return;
+        }
+
+        trainers.forEach((trainer) => {
+          const item = document.createElement("div");
+          item.className = "trainer-item";
+
+          const main = document.createElement("div");
+          main.className = "trainer-item-main";
+
+          const name = document.createElement("div");
+          name.className = "trainer-item-name";
+          name.textContent = trainer.name;
+          main.appendChild(name);
+
+          if (trainer.features) {
+            const features = document.createElement("div");
+            features.className = "trainer-item-features";
+            features.textContent = trainer.features;
+            main.appendChild(features);
+          }
+
+          const actions = document.createElement("div");
+          actions.className = "trainer-item-actions";
+
+          const editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.textContent = "수정";
+          editBtn.addEventListener("click", () => startEditTrainer(trainer));
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.type = "button";
+          deleteBtn.className = "trainer-delete-btn";
+          deleteBtn.textContent = "삭제";
+          deleteBtn.addEventListener("click", () =>
+            deleteTrainer(trainer.id),
+          );
+
+          actions.appendChild(editBtn);
+          actions.appendChild(deleteBtn);
+
+          item.appendChild(main);
+          item.appendChild(actions);
+          trainerListEl.appendChild(item);
+        });
+      }
+
+      function resetTrainerForm() {
+        editingTrainerId = null;
+        trainerFormName.value = "";
+        trainerFormFeatures.value = "";
+        trainerFormSaveBtn.textContent = "추가";
+        trainerFormCancelBtn.style.display = "none";
+      }
+
+      function startEditTrainer(trainer) {
+        editingTrainerId = trainer.id;
+        trainerFormName.value = trainer.name;
+        trainerFormFeatures.value = trainer.features || "";
+        trainerFormSaveBtn.textContent = "저장";
+        trainerFormCancelBtn.style.display = "inline-block";
+        trainerFormName.focus();
+      }
+
+      function deleteTrainer(id) {
+        if (!confirm("이 트레이너 프로필을 삭제할까요?")) return;
+
+        const trainers = loadTrainers().filter((t) => t.id !== id);
+        saveTrainers(trainers);
+
+        if (editingTrainerId === id) resetTrainerForm();
+
+        renderTrainerList();
+        renderTrainerSelect();
+      }
+
+      trainerFormSaveBtn.addEventListener("click", () => {
+        const name = trainerFormName.value.trim();
+        const features = trainerFormFeatures.value.trim();
+
+        if (!name) {
+          alert("트레이너 이름을 입력해 주세요.");
+          trainerFormName.focus();
+          return;
+        }
+
+        const trainers = loadTrainers();
+
+        if (editingTrainerId != null) {
+          const target = trainers.find((t) => t.id === editingTrainerId);
+          if (target) {
+            target.name = name;
+            target.features = features;
+          }
+        } else {
+          trainers.push({
+            id: Date.now(),
+            name,
+            features,
+          });
+        }
+
+        saveTrainers(trainers);
+
+        const savedId = editingTrainerId != null ? editingTrainerId : trainers[trainers.length - 1].id;
+        resetTrainerForm();
+        renderTrainerList();
+        renderTrainerSelect();
+        trainerSelect.value = savedId;
+      });
+
+      trainerFormCancelBtn.addEventListener("click", resetTrainerForm);
+
+      trainerManageToggle.addEventListener("click", () => {
+        const isOpen = trainerManage.style.display === "block";
+        trainerManage.style.display = isOpen ? "none" : "block";
+        if (!isOpen) {
+          renderTrainerList();
+        } else {
+          resetTrainerForm();
+        }
+      });
+
+      function updateTrainerSectionVisibility() {
+        const concept = document.querySelector(
+          "input[name=concept]:checked",
+        ).value;
+        trainerSection.style.display = concept === "trainer" ? "block" : "none";
+      }
+
+      document
+        .querySelectorAll('input[name="concept"]')
+        .forEach((el) =>
+          el.addEventListener("change", updateTrainerSectionVisibility),
+        );
+
+      renderTrainerSelect();
+      updateTrainerSectionVisibility();
+      updateGenerationTypeVisibility();
 
       // 서버 설정(저장 기능 사용 가능 여부, 아임웹 게시판 글쓰기 URL)을 미리 받아둔다.
       fetch("/api/config")
@@ -422,6 +1656,352 @@
           : "none";
       }
 
+      // 운동 프로그램/식단 가이드용 렌더러. 블로그 글 마커나 카드뉴스 이미지가 없는
+      // 순수 텍스트 결과이므로, renderArticle의 마커 매칭/이미지 삽입 로직을 타지 않고
+      // #article의 white-space: pre-wrap 스타일에 기대어 줄바꿈 그대로만 출력한다.
+      function renderPlainContent(content) {
+        articleEl.innerHTML = "";
+        articleEl.textContent = content;
+
+        articleEl.style.display = "block";
+        articleToolbar.style.display = "block";
+        publishHint.style.display = appConfig.board_write_url
+          ? "block"
+          : "none";
+      }
+
+      // ==== fitness_plan 전용 리포트형 렌더러 ====
+      // FITNESS_PLAN_RULES가 항상 "1. 회원 데이터 요약" ~ "7. 실전 체크리스트" 순서의
+      // 번호 붙은 7개 섹션으로 답하도록 강제하고 있으므로, 그 번호를 기준으로 내용을
+      // 잘라서 각 섹션 성격에 맞는 카드/표/그리드로 다시 조립한다. innerHTML을 직접
+      // 만들기 때문에 모델이 생성한 텍스트는 반드시 escapeHtml을 거쳐 삽입한다.
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      const PLAN_SECTION_HEADER_RE = /^(\d+)\.\s*(.+)$/;
+
+      function parsePlanSections(content) {
+        const lines = content.split("\n");
+        const sections = [];
+        let current = null;
+
+        lines.forEach((line) => {
+          const match = line.trim().match(PLAN_SECTION_HEADER_RE);
+          if (match && Number(match[1]) >= 1 && Number(match[1]) <= 7) {
+            current = { number: Number(match[1]), title: match[2].trim(), lines: [] };
+            sections.push(current);
+          } else if (current) {
+            current.lines.push(line);
+          }
+        });
+
+        return sections.map((section) => ({
+          number: section.number,
+          title: section.title,
+          body: section.lines.join("\n").trim(),
+        }));
+      }
+
+      // 빈 줄 기준으로 문단을 나눈다. 모델이 한 섹션을 통 문단으로 쓰면 그대로 문단 1개가 된다.
+      function splitParagraphs(text) {
+        return text
+          .split(/\n\s*\n/)
+          .map((p) => p.replace(/\n/g, " ").trim())
+          .filter(Boolean);
+      }
+
+      function renderParagraphHtml(text) {
+        return splitParagraphs(text)
+          .map((p) => `<p>${escapeHtml(p)}</p>`)
+          .join("");
+      }
+
+      // "1. 회원 데이터 요약" 섹션: "라벨: 값" 줄들을 grid 카드로 바꾼다.
+      // 프롬프트가 값 없는 항목은 아예 생략하도록 지시하지만, 혹시 과거 저장 글이나
+      // 모델 일탈로 "전달값 없음"류 표현이 남아 있으면 방어적으로 화면에서 숨긴다.
+      const EMPTY_VALUE_RE =
+        /^(전달값?\s*없음\.?|제공(?:되지|이|가)?\s*않(?:음|았음)|제공\s*안\s*됨|입력(?:되지)?\s*않(?:음|았음)|입력\s*안\s*됨|미입력|미제공|해당\s*(?:사항\s*)?없음|없음\.?|-)$/;
+
+      function renderMemberSummary(body) {
+        const items = body
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const idx = line.indexOf(":");
+            if (idx === -1) return null;
+            return {
+              label: line.slice(0, idx).trim(),
+              value: line.slice(idx + 1).trim(),
+            };
+          })
+          .filter(Boolean)
+          .filter(
+            (item) =>
+              item.label.includes("목적") ||
+              (item.value && !EMPTY_VALUE_RE.test(item.value)),
+          );
+
+        if (items.length === 0) {
+          return renderParagraphHtml(body);
+        }
+
+        const cards = items
+          .map(
+            (item) =>
+              `<div class="member-card"><span class="member-label">${escapeHtml(item.label)}</span><span class="member-value">${escapeHtml(item.value)}</span></div>`,
+          )
+          .join("");
+
+        return `<div class="member-grid">${cards}</div>`;
+      }
+
+      // "4. 실제 하루 식단 예시" 섹션: "아침: ... / 이유: ... / 대체: ..." 블록을 식사 카드로 바꾼다.
+      const MEAL_LABELS = ["아침", "점심", "운동 전 간식", "운동 후 간식", "저녁"];
+
+      function renderMealSection(body) {
+        const blocks = body
+          .split(/\n\s*\n/)
+          .map((b) => b.trim())
+          .filter(Boolean);
+
+        const meals = [];
+        const leftover = [];
+
+        blocks.forEach((block) => {
+          const blockLines = block
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
+          if (blockLines.length === 0) return;
+
+          const label = MEAL_LABELS.find((l) => blockLines[0].startsWith(l + ":"));
+          if (!label) {
+            leftover.push(block);
+            return;
+          }
+
+          const main = blockLines[0].slice(label.length + 1).trim();
+          let reason = "";
+          let alt = "";
+          blockLines.slice(1).forEach((line) => {
+            if (line.startsWith("이유:")) reason = line.slice(3).trim();
+            else if (line.startsWith("대체:")) alt = line.slice(3).trim();
+          });
+
+          meals.push({ label, main, reason, alt });
+        });
+
+        let html = "";
+        if (meals.length > 0) {
+          html +=
+            '<div class="meal-grid">' +
+            meals
+              .map((meal) => {
+                let inner = `<strong>${escapeHtml(meal.label)}</strong><p>${escapeHtml(meal.main)}</p>`;
+                if (meal.reason) {
+                  inner += `<p class="meal-reason">이유: ${escapeHtml(meal.reason)}</p>`;
+                }
+                if (meal.alt) {
+                  inner += `<p class="meal-alt">대체: ${escapeHtml(meal.alt)}</p>`;
+                }
+                return `<div class="meal-card">${inner}</div>`;
+              })
+              .join("") +
+            "</div>";
+        }
+        if (leftover.length > 0) {
+          html += leftover.map((p) => `<p>${escapeHtml(p.replace(/\n/g, " "))}</p>`).join("");
+        }
+        return html || renderParagraphHtml(body);
+      }
+
+      // markdown table( | 셀 | 셀 | ... 줄 + 구분선)을 찾아 {headerCells, bodyRows, before, after}로 분해한다.
+      function extractMarkdownTable(text) {
+        const lines = text.split("\n");
+        let start = -1;
+        let end = -1;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          const looksLikeRow = line.startsWith("|") && line.endsWith("|");
+          if (looksLikeRow) {
+            if (start === -1) start = i;
+            end = i;
+          } else if (start !== -1) {
+            break;
+          }
+        }
+
+        if (start === -1 || end - start < 1) return null;
+
+        const parseRow = (line) =>
+          line
+            .trim()
+            .replace(/^\|/, "")
+            .replace(/\|$/, "")
+            .split("|")
+            .map((cell) => cell.trim());
+
+        const tableLines = lines.slice(start, end + 1);
+        const isSeparatorRow = (line) =>
+          /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/.test(line.trim());
+
+        const headerCells = parseRow(tableLines[0]);
+        const bodyStart = isSeparatorRow(tableLines[1] || "") ? 2 : 1;
+        const bodyRows = tableLines
+          .slice(bodyStart)
+          .map(parseRow)
+          .filter((row) => row.some((cell) => cell !== ""));
+
+        return {
+          headerCells,
+          bodyRows,
+          before: lines.slice(0, start).join("\n").trim(),
+          after: lines.slice(end + 1).join("\n").trim(),
+        };
+      }
+
+      // "5. 일주일 운동 프로그램" 섹션: markdown table을 실제 <table>로 바꾼다.
+      function renderExerciseSection(body) {
+        const parsed = extractMarkdownTable(body);
+        if (!parsed) return renderParagraphHtml(body);
+
+        let html = parsed.before ? renderParagraphHtml(parsed.before) : "";
+
+        html += '<div class="plan-table-wrap"><table class="plan-table"><thead><tr>';
+        html += parsed.headerCells.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("");
+        html += "</tr></thead><tbody>";
+        html += parsed.bodyRows
+          .map(
+            (row) => "<tr>" + row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("") + "</tr>",
+          )
+          .join("");
+        html += "</tbody></table></div>";
+
+        if (parsed.after) html += renderParagraphHtml(parsed.after);
+
+        return html;
+      }
+
+      // "6. 트레이너 피드백 가이드" 섹션: "첫째,/둘째,/..." 서수 표현이 있으면 그 기준으로,
+      // 없으면 문단 기준으로, 그마저 없으면 문장 2개씩 묶어서 카드로 나눈다.
+      function renderFeedbackSection(body) {
+        const ordinalRe = /(?:^|\n)(?:첫째|둘째|셋째|넷째|다섯째|여섯째|일곱째)[,、]\s*/;
+        let items = [];
+
+        if (ordinalRe.test(body)) {
+          items = body
+            .split(ordinalRe)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+
+        if (items.length < 2) {
+          items = splitParagraphs(body);
+        }
+
+        if (items.length <= 1) {
+          const sentences = body
+            .split(/(?<=[.!?])\s+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          items = [];
+          for (let i = 0; i < sentences.length; i += 2) {
+            items.push(sentences.slice(i, i + 2).join(" "));
+          }
+        }
+
+        items = items.filter(Boolean);
+        if (items.length === 0) return renderParagraphHtml(body);
+
+        return (
+          '<div class="feedback-list">' +
+          items.map((item) => `<div class="feedback-card">${escapeHtml(item)}</div>`).join("") +
+          "</div>"
+        );
+      }
+
+      // "7. 실전 체크리스트" 섹션: 줄 단위 항목을 체크 아이템으로 바꾼다.
+      function renderChecklistSection(body) {
+        let items = body
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+
+        if (items.length <= 1) {
+          items = body
+            .split(/(?<=[.!?])\s+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+
+        if (items.length === 0) return renderParagraphHtml(body);
+
+        return (
+          '<div class="check-list">' +
+          items.map((item) => `<div class="check-item">✓ ${escapeHtml(item)}</div>`).join("") +
+          "</div>"
+        );
+      }
+
+      // fitness_plan 결과 전용 렌더러. blog_post의 renderArticle과는 완전히 분리되어 있다.
+      function renderFitnessPlan(content) {
+        const sections = parsePlanSections(content);
+
+        if (sections.length === 0) {
+          // 예상한 번호 섹션 구조를 찾지 못하면(포맷 이탈 등) 최소한 원문이라도 보여준다.
+          renderPlainContent(content);
+          return;
+        }
+
+        const sectionsHtml = sections
+          .map((section) => {
+            let bodyHtml;
+            switch (section.number) {
+              case 1:
+                bodyHtml = renderMemberSummary(section.body);
+                break;
+              case 4:
+                bodyHtml = renderMealSection(section.body);
+                break;
+              case 5:
+                bodyHtml = renderExerciseSection(section.body);
+                break;
+              case 6:
+                bodyHtml = renderFeedbackSection(section.body);
+                break;
+              case 7:
+                bodyHtml = renderChecklistSection(section.body);
+                break;
+              default:
+                bodyHtml = renderParagraphHtml(section.body);
+            }
+
+            return (
+              '<section class="plan-section">' +
+              '<div class="plan-section-head">' +
+              `<span class="plan-section-number">${section.number}</span>` +
+              `<h3>${escapeHtml(section.title)}</h3>` +
+              "</div>" +
+              `<div class="plan-section-body">${bodyHtml}</div>` +
+              "</section>"
+            );
+          })
+          .join("");
+
+        articleEl.innerHTML = `<div class="plan-result">${sectionsHtml}</div>`;
+        articleEl.style.display = "block";
+        articleToolbar.style.display = "block";
+        publishHint.style.display = appConfig.board_write_url ? "block" : "none";
+      }
+
       function showCopied() {
         copyBtn.textContent = "복사됨!";
         setTimeout(() => {
@@ -479,19 +2059,84 @@
         articleToolbar.style.display = "none";
         metaEl.textContent = "";
 
-        const generateImages =
-          document.getElementById("generate_images").checked;
+        const generationType = document.querySelector(
+          "input[name=generation_type]:checked",
+        ).value;
+        const isBlogPost = generationType === "blog_post";
+        const isFitnessPlan = generationType === "fitness_plan";
 
-        statusEl.textContent = generateImages
-          ? "생성 중입니다... (텍스트 + 카드뉴스 이미지 2장, 최대 2~3분 정도 걸릴 수 있어요)"
-          : "생성 중입니다... (텍스트만, 보통 10~30초)";
+        const memberGoalTypeEl = document.querySelector(
+          "input[name=member_goal_type]:checked",
+        );
+
+        // 회원 목적만 필수값이다. 다른 회원 데이터는 비워도 그대로 제출된다.
+        if (isFitnessPlan && !memberGoalTypeEl) {
+          statusEl.innerHTML =
+            '<span class="error">회원 목적을 선택해 주세요.</span>';
+          submitBtn.disabled = false;
+          return;
+        }
+
+        // 운동·식단 프로그램은 카드뉴스 이미지를 만들지 않으므로,
+        // 체크박스가 화면에 남아 있어도 항상 false로 강제한다.
+        const generateImages =
+          isBlogPost && document.getElementById("generate_images").checked;
+
+        statusEl.textContent = isBlogPost
+          ? generateImages
+            ? "생성 중입니다... (텍스트 + 카드뉴스 이미지 2장, 최대 2~3분 정도 걸릴 수 있어요)"
+            : "생성 중입니다... (텍스트만, 보통 10~30초)"
+          : "생성 중입니다... (1주일 운동·식단 프로그램, 분량이 많아 30초~1분 정도 걸릴 수 있어요)";
+
+        const concept = document.querySelector(
+          "input[name=concept]:checked",
+        ).value;
+
+        let selectedTrainer = null;
+        if (isBlogPost && concept === "trainer" && trainerSelect.value) {
+          selectedTrainer = loadTrainers().find(
+            (t) => String(t.id) === trainerSelect.value,
+          );
+        }
 
         const payload = {
-          gym_info: document.getElementById("gym_info").value,
-          keyword: document.getElementById("keyword").value,
-          concept: document.querySelector("input[name=concept]:checked").value,
-          priors: document.getElementById("priors").value || null,
+          // fitness_plan은 블로그용 시설 정보/키워드/개별 조건을 쓰지 않으므로 빈 값으로 보낸다.
+          gym_info: isBlogPost ? document.getElementById("gym_info").value : "",
+          keyword: isBlogPost ? document.getElementById("keyword").value : "",
+          generation_type: generationType,
+          concept,
+          priors: isBlogPost
+            ? document.getElementById("priors").value || null
+            : null,
+          trainer_name: selectedTrainer ? selectedTrainer.name : null,
+          trainer_features: selectedTrainer ? selectedTrainer.features : null,
           generate_images: generateImages,
+          member_gender_age: isFitnessPlan
+            ? document.getElementById("member_gender_age").value || null
+            : null,
+          member_weight: isFitnessPlan
+            ? document.getElementById("member_weight").value || null
+            : null,
+          member_muscle_mass: isFitnessPlan
+            ? document.getElementById("member_muscle_mass").value || null
+            : null,
+          member_body_fat: isFitnessPlan
+            ? document.getElementById("member_body_fat").value || null
+            : null,
+          member_bmr: isFitnessPlan
+            ? document.getElementById("member_bmr").value || null
+            : null,
+          member_tdee: isFitnessPlan
+            ? document.getElementById("member_tdee").value || null
+            : null,
+          member_available_days: isFitnessPlan
+            ? document.getElementById("member_available_days").value || null
+            : null,
+          member_injury_notes: isFitnessPlan
+            ? document.getElementById("member_injury_notes").value || null
+            : null,
+          member_goal_type:
+            isFitnessPlan && memberGoalTypeEl ? memberGoalTypeEl.value : null,
         };
 
         try {
@@ -509,14 +2154,24 @@
 
           window.__lastData = data; // 콘솔 디버깅용
           currentContent = data.content;
+          currentImages = data.images || [];
+          updateDownloadImagesButtonVisibility();
 
-          renderArticle(data.content, data.images);
+          if (isBlogPost) {
+            renderArticle(data.content, data.images);
+          } else if (isFitnessPlan) {
+            renderFitnessPlan(data.content);
+          } else {
+            renderPlainContent(data.content);
+          }
 
           const savedNote =
             data.id != null
               ? `#${data.id} 저장됨`
               : "저장 안 됨(이 환경은 저장 미지원)";
-          metaEl.textContent = `${savedNote} | 글자수: ${data.content_length}자 | 이미지 ${data.images.length}개 (대표 1 + 본문 ${data.images.length - 1})`;
+          metaEl.textContent = isBlogPost
+            ? `${savedNote} | 글자수: ${data.content_length}자 | 이미지 ${data.images.length}개 (대표 1 + 본문 ${data.images.length - 1})`
+            : `${savedNote} | 글자수: ${data.content_length}자`;
 
           statusEl.textContent = "완료됐습니다.";
 
@@ -572,9 +2227,17 @@
             const item = document.createElement("div");
             item.className = "saved-item";
 
+            const genTypeLabel =
+              GENERATION_TYPE_LABELS[post.generation_type] ||
+              GENERATION_TYPE_LABELS.blog_post;
+            const conceptSuffix = formatConceptSuffix(post);
+            const titleWithConcept = conceptSuffix
+              ? `${post.title} - ${conceptSuffix}`
+              : post.title;
+
             const main = document.createElement("span");
             main.className = "saved-item-main";
-            main.innerHTML = `<span class="saved-date">${formatDate(post.created_at)}</span>#${post.id} ${post.title} (${post.content_length}자, ${post.keyword})`;
+            main.innerHTML = `<span class="saved-date">${formatDate(post.created_at)}</span>[${genTypeLabel}] #${post.id} ${escapeHtml(titleWithConcept)} (${post.content_length}자, ${escapeHtml(post.keyword)})`;
             main.addEventListener("click", () => loadSavedPost(post.id));
 
             const deleteBtn = document.createElement("button");
@@ -629,11 +2292,62 @@
           }
 
           window.__lastData = data;
+
+          // generation_type이 없는(마이그레이션 이전) 저장 글은 blog_post로 간주한다.
+          const savedGenerationType = data.generation_type || "blog_post";
+
+          // 저장된 글을 열면 그 글을 만들 때 썼던 생성 유형 탭으로 화면을 맞춰준다.
+          // (예: 운동·식단 프로그램 탭을 보다가 블로그 글을 클릭하면 블로그 글 탭으로 전환)
+          const targetGenType =
+            savedGenerationType === "blog_post" ? "blog_post" : "fitness_plan";
+          const targetGenRadio = document.querySelector(
+            `input[name=generation_type][value="${targetGenType}"]`,
+          );
+          if (targetGenRadio && !targetGenRadio.checked) {
+            targetGenRadio.checked = true;
+          }
+
+          // 블로그 글이면 컨셉(일반/트레이너 1인칭)도 저장된 값에 맞춰준다.
+          if (savedGenerationType === "blog_post" && data.concept) {
+            const conceptRadio = document.querySelector(
+              `input[name=concept][value="${data.concept}"]`,
+            );
+            if (conceptRadio) conceptRadio.checked = true;
+          }
+
+          // 탭/컨셉 라디오를 바꾼 뒤에는 반드시 이 함수로 화면(입력 섹션 표시,
+          // 트레이너 섹션 표시 등)을 동기화한다. 이 함수가 결과 미리보기를
+          // 초기화하는 부작용이 있어서, 실제 콘텐츠 반영은 이 호출 다음에 한다.
+          updateGenerationTypeVisibility();
+
+          // 트레이너 1인칭 글이고 로컬에 저장된 프로필 중 이름이 일치하는 게 있으면
+          // 트레이너 선택 드롭다운도 그 프로필로 맞춰준다.
+          if (
+            savedGenerationType === "blog_post" &&
+            data.concept === "trainer" &&
+            data.trainer_name
+          ) {
+            const matched = loadTrainers().find(
+              (t) => t.name === data.trainer_name,
+            );
+            if (matched) trainerSelect.value = String(matched.id);
+          }
+
           currentContent = data.content;
+          currentImages = data.images || [];
+          updateDownloadImagesButtonVisibility();
 
-          renderArticle(data.content, data.images);
+          if (savedGenerationType === "blog_post") {
+            renderArticle(data.content, data.images);
+            metaEl.textContent = `#${data.id} 저장된 글 | 글자수: ${data.content_length}자 | 이미지 ${data.images.length}개`;
+          } else if (savedGenerationType === "fitness_plan") {
+            renderFitnessPlan(data.content);
+            metaEl.textContent = `#${data.id} 저장된 글 | 글자수: ${data.content_length}자`;
+          } else {
+            renderPlainContent(data.content);
+            metaEl.textContent = `#${data.id} 저장된 글 | 글자수: ${data.content_length}자`;
+          }
 
-          metaEl.textContent = `#${data.id} 저장된 글 | 글자수: ${data.content_length}자 | 이미지 ${data.images.length}개`;
           statusEl.textContent = "저장된 글을 불러왔습니다.";
 
           articleEl.scrollIntoView({ behavior: "smooth", block: "start" });

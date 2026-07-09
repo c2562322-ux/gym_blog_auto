@@ -84,11 +84,17 @@ BLOG_POST_SCHEMA = {
 }
 
 
-def _call_chat(client, model: str, system_prompt: str, messages_history: list) -> Dict[str, Any]:
+def _call_chat(
+    client,
+    model: str,
+    system_prompt: str,
+    messages_history: list,
+    json_schema: Dict[str, Any] = BLOG_POST_SCHEMA,
+) -> Dict[str, Any]:
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "system", "content": system_prompt}] + messages_history,
-        response_format={"type": "json_schema", "json_schema": BLOG_POST_SCHEMA},
+        response_format={"type": "json_schema", "json_schema": json_schema},
     )
     raw = response.choices[0].message.content
     return json.loads(raw)
@@ -167,6 +173,151 @@ def generate_blog_post(
         "representative_image": data["representative_image"],
         "body_image": data["body_image"],
     }
+
+
+# 운동 프로그램 / 식단 가이드 전용. BLOG_POST_SCHEMA와 달리 representative_image/body_image가
+# 없다 — 이 두 생성 유형은 이미지를 만들지 않고 content만 반환한다.
+EXERCISE_PROGRAM_SCHEMA = {
+    "name": "exercise_program",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "content": {
+                "type": "string",
+                "description": "완성된 운동 프로그램 안내문 본문 전체 (공백 포함 900~1,300자)",
+            },
+        },
+        "required": ["content"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+DIET_GUIDE_SCHEMA = {
+    "name": "diet_guide",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "content": {
+                "type": "string",
+                "description": "완성된 식단 가이드 본문 전체 (공백 포함 900~1,300자)",
+            },
+        },
+        "required": ["content"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+SHORT_TEXT_MIN_CHARS = 900
+SHORT_TEXT_MAX_CHARS = 1300
+SHORT_TEXT_LENGTH_ATTEMPTS = 3  # 최초 1회 + 보정 최대 2회
+
+
+def _generate_short_text(
+    client,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+    json_schema: Dict[str, Any],
+    min_chars: int = SHORT_TEXT_MIN_CHARS,
+    max_chars: int = SHORT_TEXT_MAX_CHARS,
+) -> str:
+    """content 단일 필드만 있는 텍스트(운동 프로그램/식단 가이드/운동·식단 통합 프로그램)를
+    생성하고, 분량이 [min_chars, max_chars]를 벗어나면 generate_blog_post와 같은 방식으로
+    보정 재요청한다. 기본 분량은 운동 프로그램/식단 가이드용(900~1,300자)이고, 운동·식단
+    통합 프로그램(fitness_plan)처럼 더 긴 분량이 필요하면 min_chars/max_chars를 넘긴다."""
+    history = [{"role": "user", "content": user_message}]
+    data = _call_chat(client, model, system_prompt, history, json_schema)
+
+    for _ in range(SHORT_TEXT_LENGTH_ATTEMPTS - 1):
+        length = len(data["content"])
+        if min_chars <= length <= max_chars:
+            break
+
+        if length > max_chars:
+            diff_instruction = f"{length - max_chars}자만큼 초과했으니 그만큼 줄여주세요."
+        else:
+            diff_instruction = f"{min_chars - length}자만큼 부족하니 그만큼 늘려주세요."
+
+        correction = (
+            f"방금 작성한 content는 공백 포함 {length}자입니다. {diff_instruction} "
+            f"형식과 내용, 어투는 그대로 유지하면서 content 분량만 공백 포함 {min_chars}자 이상 "
+            f"{max_chars}자 이내로 다시 작성해 주세요."
+        )
+        history = history + [
+            {"role": "assistant", "content": json.dumps(data, ensure_ascii=False)},
+            {"role": "user", "content": correction},
+        ]
+        data = _call_chat(client, model, system_prompt, history, json_schema)
+
+    return data["content"]
+
+
+def generate_exercise_program(
+    client,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+) -> Dict[str, Any]:
+    """운동 프로그램 안내문(content만)을 생성한다. 이미지는 생성하지 않는다."""
+    content = _generate_short_text(client, model, system_prompt, user_message, EXERCISE_PROGRAM_SCHEMA)
+    return {"content": content}
+
+
+def generate_diet_guide(
+    client,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+) -> Dict[str, Any]:
+    """식단 가이드(content만)를 생성한다. 이미지는 생성하지 않는다."""
+    content = _generate_short_text(client, model, system_prompt, user_message, DIET_GUIDE_SCHEMA)
+    return {"content": content}
+
+
+# 운동·식단 통합 프로그램(fitness_plan) 전용. exercise_program/diet_guide와 달리 운동과
+# 식단을 하나의 목적으로 연결해 한 번에 생성하므로, BLOG_POST_SCHEMA/EXERCISE_PROGRAM_SCHEMA/
+# DIET_GUIDE_SCHEMA와 무관한 별도 스키마를 쓴다. 이미지는 생성하지 않는다.
+FITNESS_PLAN_SCHEMA = {
+    "name": "fitness_plan",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "content": {
+                "type": "string",
+                "description": "완성된 1주일 운동·식단 통합 프로그램 본문 전체 (공백 포함 1,800~2,800자)",
+            },
+        },
+        "required": ["content"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+FITNESS_PLAN_MIN_CHARS = 1800
+FITNESS_PLAN_MAX_CHARS = 2800
+
+
+def generate_fitness_plan(
+    client,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+) -> Dict[str, Any]:
+    """회원 인바디/기본 데이터를 바탕으로 1주일 운동·식단 통합 프로그램(content만)을 생성한다.
+    운동과 식단을 따로 생성하지 않고 한 번의 호출로 하나의 목적에 맞춰 연결해서 만든다.
+    이미지는 생성하지 않는다."""
+    content = _generate_short_text(
+        client,
+        model,
+        system_prompt,
+        user_message,
+        FITNESS_PLAN_SCHEMA,
+        min_chars=FITNESS_PLAN_MIN_CHARS,
+        max_chars=FITNESS_PLAN_MAX_CHARS,
+    )
+    return {"content": content}
 
 
 def generate_image(

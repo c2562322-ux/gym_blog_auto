@@ -4,10 +4,10 @@
 
 ## 이 앱이 하는 일
 
-헬스장·피트니스 센터 마케팅용 네이버 블로그 스타일 글과 카드뉴스 이미지를 자동 생성하는 FastAPI 기반 웹앱입니다.
+헬스장·피트니스 센터 마케팅·상담용 콘텐츠(블로그 글 / 운동·식단 통합 프로그램)를 자동 생성하는 FastAPI 기반 웹앱입니다.
 
 - 텍스트: OpenAI `gpt-5.4-mini` 사용
-- 이미지: OpenAI `gpt-image-2` 사용
+- 이미지: OpenAI `gpt-image-2` 사용 (블로그 글 전용, 운동·식단 통합 프로그램은 이미지 생성 없음)
 - 테스트/사용 UI: 기본 경로 `/`
 - 기존 호환 경로: `/ui/`
 - 별도 React/npm 프론트엔드 없이 순수 HTML/JS 사용
@@ -36,6 +36,8 @@
    마크다운은 금지하고, 분량은 공백 포함 1,500~1,600자 기준으로 맞춥니다.
 
    글이 초과되거나 부족할 경우 자동 보정 및 안전 트렁케이션 처리가 `app/openai_client.py`의 `generate_blog_post`에 들어 있습니다.
+
+   이 마커 형식은 `generation_type == "blog_post"` 전용입니다. 운동 프로그램/식단 가이드는 이 마커를 쓰지 않는 순수 텍스트입니다 (9번 항목 참고).
 
 3. **어투/톤 변경 이력**
 
@@ -135,6 +137,34 @@
    즉, 앱에서 SQLite 저장 글을 삭제해도 아임웹 게시판 글은 삭제되지 않습니다.
 
    아임웹 게시판 글의 수정/삭제는 아임웹 게시판에서 직접 처리합니다.
+
+9. **생성 유형(`generation_type`) 추가**
+
+   기존 블로그 글 생성 기능은 그대로 두고, 같은 화면·같은 `/api/generate-gym` 엔드포인트 안에 운동 프로그램/식단 가이드 생성을 추가했습니다.
+
+   - `generation_type` 값: `blog_post`(기본값) / `exercise_program` / `diet_guide`
+   - 요청에 `generation_type`이 없으면 항상 `blog_post`로 처리되어 기존 클라이언트 호출이 그대로 작동합니다.
+   - `blog_post`는 기존 로직(`build_system_prompt`, `generate_blog_post`, `COMMON_RULES`/`IMAGE_RULES`/`TRAINER_ADDENDUM`/`GENERAL_ADDENDUM`, 카드뉴스 이미지 생성) 그대로 사용합니다. `app/main.py`의 `_generate_blog_post` 함수가 이 로직을 감싸고 있을 뿐 내용은 바뀌지 않았습니다.
+   - `exercise_program`/`diet_guide`는 블로그 글 마커("제목 : " 등)를 쓰지 않는 순수 텍스트(900~1,300자)이고, 완전히 별도의 프롬프트(`build_exercise_program_prompt`/`build_diet_guide_prompt`, `app/prompts.py`)와 별도의 생성 함수(`generate_exercise_program`/`generate_diet_guide`, `app/openai_client.py`)를 씁니다. 이미지는 생성하지 않습니다(`images=[]`, `image_plan_text=""`).
+   - 응답 스키마는 `GenerateGymResponse`를 그대로 재사용합니다(`images`가 빈 배열, `image_plan_text`가 빈 문자열일 뿐 구조는 동일).
+   - **의도적으로 `Literal`이 아니라 `str`인 필드**: `GenerateGymRequest.generation_type`은 `str`입니다. `Literal`로 하면 FastAPI/Pydantic이 알 수 없는 값을 라우트 진입 전에 422로 걸러버려서, "알 수 없는 `generation_type`이면 400을 반환한다"는 요구사항을 `app/main.py`에서 구현할 기회 자체가 없어집니다. 반면 `PostSummary`/`PostDetail`의 `generation_type`은 우리 코드가 DB에 쓴 값만 읽으므로 `Literal`을 그대로 씁니다.
+   - **프론트엔드**: `app/static/index.html`에 "생성 유형" 라디오(블로그 글/운동 프로그램/식단 가이드)를 추가했습니다. 블로그 글이 아니면 컨셉 영역과 카드뉴스 이미지 체크박스를 숨기고 `generate_images`를 강제로 `false`로 보냅니다. 결과 렌더링은 기존 `renderArticle`(블로그 글 전용, 마커 매칭 기반)을 건드리지 않고, 순수 텍스트용 `renderPlainContent`(pre-wrap으로 그대로 출력)를 새로 추가해 분기했습니다. 저장된 글 목록에는 `[블로그 글]`/`[운동 프로그램]`/`[식단 가이드]` 라벨이 붙습니다.
+   - **SQLite 마이그레이션**: 이 기능 이전에 만들어진 로컬 `data/posts.db`에는 `generation_type` 컬럼이 없습니다. `SqlitePostRepository.init()`이 `CREATE TABLE IF NOT EXISTS` 직후 `PRAGMA table_info(posts)`로 컬럼 존재 여부를 확인하고, 없으면 `ALTER TABLE posts ADD COLUMN generation_type TEXT DEFAULT 'blog_post'`를 실행합니다. 기존 저장 글은 전부 `blog_post`로 간주됩니다. 실제 운영 중이던 `data/posts.db`(저장 글 14건)에 대해 이 마이그레이션을 실행해 데이터 손실 없이 검증했습니다.
+
+   > `exercise_program`/`diet_guide`는 10번 항목에서 `fitness_plan`으로 대체되어 UI에서 더 이상 주요 선택지가 아닙니다. 아래 10번 항목을 함께 참고하세요.
+
+10. **`fitness_plan`(운동·식단 통합 프로그램) 추가 — `exercise_program`/`diet_guide` 대체**
+
+   9번 항목의 `exercise_program`/`diet_guide`는 운동과 식단을 각각 따로 생성해서, 실제 회원에게 전달할 수 있는 하나로 연결된 프로그램이 되지 못하는 문제가 있었습니다. 그래서 회원의 인바디/기본 데이터를 입력받아 운동과 식단을 하나의 목적(다이어트/근성장/린매스업)으로 연결해 한 번에 생성하는 `fitness_plan`을 새로 추가하고, UI의 주요 선택지를 블로그 글 / 운동·식단 통합 프로그램 2개로 정리했습니다.
+
+   - `generation_type` 값에 `fitness_plan`이 추가되어 현재는 `blog_post`(기본값) / `fitness_plan` / `exercise_program` / `diet_guide` 네 가지입니다. UI 라디오는 `blog_post`/`fitness_plan` 둘만 노출하고, `exercise_program`/`diet_guide`는 과거 저장 글 상세 조회 호환용으로만 스키마·백엔드에 남아 있습니다(새로 생성할 방법은 UI에 없음).
+   - `blog_post` 로직(`_generate_blog_post`, `build_system_prompt`, `generate_blog_post`, 카드뉴스 이미지 생성)은 이번에도 전혀 건드리지 않았습니다.
+   - `fitness_plan` 전용 요청 필드(`app/schemas.py`): `member_gender_age`, `member_weight`, `member_muscle_mass`, `member_body_fat`, `member_bmr`, `member_tdee`, `member_available_days`, `member_injury_notes`, `member_goal_type`(예: "A 타입(다이어트)" / "B 타입(근성장)" / "C 타입(린매스업)"). 전부 `Optional[str]`이며 `fitness_plan`이 아닌 다른 generation_type에서는 무시됩니다.
+   - 전용 프롬프트 `FITNESS_PLAN_RULES` / `build_fitness_plan_prompt()`(`app/prompts.py`)는 COMMON_RULES/IMAGE_RULES와 완전히 무관하며, 블로그 마커·홍보 유도 문장·네이버 블로그식 도입부를 명시적으로 금지합니다. 결과는 회원 데이터 요약 → 목적 설정 → 식단 조건·하루 총량 가이드(TDEE 기준 칼로리, 체중 기준 단백질 목표, 탄단지 비율) → 하루 식단 예시 → 요일별 운동 프로그램(마크다운 table) → 트레이너 피드백 가이드 → 실전 체크리스트 순서로 구성되며, 분량은 1,800~2,800자입니다.
+   - 전용 생성 함수 `generate_fitness_plan`(`app/openai_client.py`)은 `FITNESS_PLAN_SCHEMA`(content 단일 필드)를 쓰고, 분량 보정 로직은 `_generate_short_text`에 `min_chars`/`max_chars` 인자를 추가해 재사용했습니다(`exercise_program`/`diet_guide`의 900~1,300자 기본값은 그대로 유지).
+   - 전용 user message `build_fitness_plan_user_message(req)`(`app/main.py`)는 기존 `build_user_message`("블로그 글을 작성해 주세요" 문구 포함)를 재사용하지 않고 별도로 만들었습니다. 시설 정보/키워드는 각각 "시설 참고 정보"/"프로그램 방향 참고값"으로, 개별 조건과 회원 데이터 9개 필드를 함께 담아 전달합니다.
+   - `repository.py`는 수정하지 않았습니다 — `generation_type`이 이미 일반 `str`로 저장/조회되고 있어서 `"fitness_plan"` 값도 별도 변경 없이 그대로 저장됩니다.
+   - **프론트엔드**: "생성 유형" 라디오를 블로그 글 / 운동·식단 통합 프로그램 2개로 줄이고, `fitness_plan` 선택 시에만 보이는 회원 데이터 입력 영역(`#fitnessPlanSection`)을 추가했습니다. 시설 정보/키워드/개별 조건 라벨과 placeholder는 `generation_type`에 따라 JS로 바뀝니다(`FIELD_LABELS`). 컨셉/카드뉴스 이미지 체크박스/트레이너 섹션은 `blog_post`가 아니면 숨깁니다. 결과 렌더링은 `blog_post`만 기존 `renderArticle`을 쓰고, 그 외(`fitness_plan` 포함 모든 값)는 기존에 추가해 둔 `renderPlainContent`로 처리하도록 되어 있어 별도 분기 추가 없이 자연스럽게 커버됩니다. 저장 목록 라벨에 `fitness_plan: "운동·식단 통합 프로그램"`을 추가했고, `exercise_program`/`diet_guide` 라벨은 과거 저장 글 표시를 위해 그대로 남겨뒀습니다.
 
 ## 로컬 실행 방법
 

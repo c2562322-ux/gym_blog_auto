@@ -9,8 +9,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
-from .openai_client import format_image_plan_text, generate_blog_post, generate_images_parallel
-from .prompts import build_system_prompt
+from .openai_client import (
+    format_image_plan_text,
+    generate_blog_post,
+    generate_diet_guide,
+    generate_exercise_program,
+    generate_fitness_plan,
+    generate_images_parallel,
+)
+from .prompts import (
+    build_diet_guide_prompt,
+    build_exercise_program_prompt,
+    build_fitness_plan_prompt,
+    build_system_prompt,
+)
 from .repository import get_post_repository
 from .schemas import (
     AppConfig,
@@ -53,11 +65,57 @@ STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/ui", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
 
 
-def build_user_message(gym_info: str, keyword: str, priors: Optional[Any]) -> str:
+def build_user_message(
+    gym_info: str,
+    keyword: str,
+    priors: Optional[Any],
+    trainer_name: Optional[str] = None,
+    trainer_features: Optional[str] = None,
+) -> str:
     lines = [f"키워드: {keyword}", f"시설 정보: {gym_info}"]
     if priors:
         lines.append(f"개별 조건: {priors}")
+    if trainer_name or trainer_features:
+        trainer_parts = []
+        if trainer_name:
+            trainer_parts.append(f"이름: {trainer_name}")
+        if trainer_features:
+            trainer_parts.append(f"특징: {trainer_features}")
+        lines.append("트레이너 정보: " + " / ".join(trainer_parts))
     lines.append("위 키워드, 시설 정보, 개별 조건을 반영하여 시스템 지침에 따라 블로그 글을 작성해 주세요.")
+    return "\n".join(lines)
+
+
+def build_fitness_plan_user_message(req: GenerateGymRequest) -> str:
+    """fitness_plan 전용 user message. build_user_message와 달리 "블로그 글을 작성해
+    주세요"라는 문구를 포함하지 않는다 — 회원 인바디/기본 데이터를 바탕으로 한 실전
+    운동·식단 통합 프로그램 문서를 요청하는 별도 메시지다."""
+    lines = [
+        "아래 회원 기본 데이터와 시설 참고 정보를 바탕으로 실제 1주일 운동·식단 통합 프로그램을 작성해 주세요.",
+        "블로그 글이 아닙니다. 홍보 원고가 아닙니다. 회원에게 전달할 수 있는 실전 프로그램 문서입니다.",
+        "",
+        f"시설 참고 정보: {req.gym_info}",
+        f"프로그램 방향 참고값: {req.keyword}",
+    ]
+    if req.priors:
+        lines.append(f"개별 조건: {req.priors}")
+
+    member_fields = [
+        ("성별/나이", req.member_gender_age),
+        ("체중", req.member_weight),
+        ("골격근량", req.member_muscle_mass),
+        ("체지방률", req.member_body_fat),
+        ("BMR", req.member_bmr),
+        ("TDEE", req.member_tdee),
+        ("출석 가능 횟수/요일", req.member_available_days),
+        ("부상 이력 및 특이사항", req.member_injury_notes),
+        ("선택 목적", req.member_goal_type),
+    ]
+    for label, value in member_fields:
+        if value:
+            lines.append(f"{label}: {value}")
+
+    lines.append("운동과 식단은 선택 목적에 맞춰 서로 연결되도록 작성해 주세요.")
     return "\n".join(lines)
 
 
@@ -78,13 +136,16 @@ def get_config() -> AppConfig:
     return AppConfig(storage_available=repository.available, board_write_url=IMWEB_BOARD_WRITE_URL)
 
 
-@app.post("/api/generate-gym", response_model=GenerateGymResponse)
-def generate_gym_post(req: GenerateGymRequest) -> GenerateGymResponse:
-    text_model = req.model or DEFAULT_TEXT_MODEL
-    image_model = req.image_model or DEFAULT_IMAGE_MODEL
-
+def _generate_blog_post(req: GenerateGymRequest, text_model: str, image_model: str) -> GenerateGymResponse:
+    """기존 블로그 글 생성 흐름. generation_type 분기가 생기기 전과 동일한 로직이다."""
     system_prompt = build_system_prompt(req.concept)
-    user_message = build_user_message(req.gym_info, req.keyword, req.priors)
+    user_message = build_user_message(
+        req.gym_info,
+        req.keyword,
+        req.priors,
+        req.trainer_name if req.concept == "trainer" else None,
+        req.trainer_features if req.concept == "trainer" else None,
+    )
 
     try:
         post = generate_blog_post(client, text_model, system_prompt, user_message)
@@ -116,6 +177,8 @@ def generate_gym_post(req: GenerateGymRequest) -> GenerateGymResponse:
         content=post["content"],
         images=[image.model_dump() for image in images],
         image_plan_text=image_plan_text,
+        generation_type="blog_post",
+        trainer_name=req.trainer_name if req.concept == "trainer" else None,
     )
 
     return GenerateGymResponse(
@@ -125,6 +188,99 @@ def generate_gym_post(req: GenerateGymRequest) -> GenerateGymResponse:
         images=images,
         image_plan_text=image_plan_text,
     )
+
+
+def _generate_short_form(
+    req: GenerateGymRequest,
+    text_model: str,
+    generation_type: str,
+    build_prompt,
+    generate_fn,
+) -> GenerateGymResponse:
+    """운동 프로그램/식단 가이드 공용 흐름. 이미지는 만들지 않고 content만 생성한다."""
+    system_prompt = build_prompt()
+    user_message = build_user_message(req.gym_info, req.keyword, req.priors)
+
+    try:
+        result = generate_fn(client, text_model, system_prompt, user_message)
+    except openai.APIStatusError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+    except openai.APIConnectionError as e:
+        raise HTTPException(status_code=503, detail="OpenAI API 연결에 실패했습니다.") from e
+
+    content = result["content"]
+
+    post_id = repository.save(
+        keyword=req.keyword,
+        concept=req.concept,
+        content=content,
+        images=[],
+        image_plan_text="",
+        generation_type=generation_type,
+    )
+
+    return GenerateGymResponse(
+        id=post_id,
+        content=content,
+        content_length=len(content),
+        images=[],
+        image_plan_text="",
+    )
+
+
+def _generate_fitness_plan(req: GenerateGymRequest, text_model: str) -> GenerateGymResponse:
+    """운동·식단 통합 프로그램(fitness_plan) 흐름. 회원 인바디/기본 데이터를 바탕으로
+    운동과 식단이 하나의 목적에 맞춰 연결된 1주일 프로그램을 한 번에 생성한다.
+    blog_post와 완전히 분리된 로직이며, 이미지는 생성하지 않는다."""
+    system_prompt = build_fitness_plan_prompt()
+    user_message = build_fitness_plan_user_message(req)
+
+    try:
+        result = generate_fitness_plan(client, text_model, system_prompt, user_message)
+    except openai.APIStatusError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+    except openai.APIConnectionError as e:
+        raise HTTPException(status_code=503, detail="OpenAI API 연결에 실패했습니다.") from e
+
+    content = result["content"]
+
+    post_id = repository.save(
+        keyword=req.keyword,
+        concept=req.concept,
+        content=content,
+        images=[],
+        image_plan_text="",
+        generation_type="fitness_plan",
+    )
+
+    return GenerateGymResponse(
+        id=post_id,
+        content=content,
+        content_length=len(content),
+        images=[],
+        image_plan_text="",
+    )
+
+
+@app.post("/api/generate-gym", response_model=GenerateGymResponse)
+def generate_gym_post(req: GenerateGymRequest) -> GenerateGymResponse:
+    text_model = req.model or DEFAULT_TEXT_MODEL
+    image_model = req.image_model or DEFAULT_IMAGE_MODEL
+
+    if req.generation_type == "blog_post":
+        return _generate_blog_post(req, text_model, image_model)
+    if req.generation_type == "fitness_plan":
+        return _generate_fitness_plan(req, text_model)
+    if req.generation_type == "exercise_program":
+        return _generate_short_form(
+            req, text_model, "exercise_program", build_exercise_program_prompt, generate_exercise_program
+        )
+    if req.generation_type == "diet_guide":
+        return _generate_short_form(
+            req, text_model, "diet_guide", build_diet_guide_prompt, generate_diet_guide
+        )
+
+    raise HTTPException(status_code=400, detail=f"알 수 없는 generation_type입니다: {req.generation_type}")
 
 
 @app.get("/api/posts", response_model=List[PostSummary])
