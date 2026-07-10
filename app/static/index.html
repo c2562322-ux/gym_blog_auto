@@ -12,7 +12,8 @@
          조상 선택자를 붙인다.
          ============================================================ */
       .fitness-generator {
-        --fg-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
+        --fg-font:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
           sans-serif;
         --fg-surface: #ffffff;
         --fg-surface-muted: #f9fafb;
@@ -133,7 +134,8 @@
         transform: rotate(-45deg);
         transition: transform 0.15s ease;
       }
-      .fitness-generator .fg-collapse-toggle[aria-expanded="true"]
+      .fitness-generator
+        .fg-collapse-toggle[aria-expanded="true"]
         .fg-collapse-icon {
         transform: rotate(45deg);
       }
@@ -367,8 +369,16 @@
         margin-top: 24px;
         padding: 13px 20px;
       }
-      .fitness-generator .fg-btn + .fg-btn {
-        margin-left: 8px;
+      .fitness-generator .fg-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      /* 결과 툴바 버튼 묶음. articleToolbar 자체는 JS가 display:none/block으로
+         직접 토글하므로, 버튼 줄바꿈/간격은 안쪽의 이 래퍼가 담당한다. */
+      .fitness-generator .fg-toolbar-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
       }
 
       .fitness-generator #status {
@@ -877,12 +887,7 @@
               <!-- pill 토글: 라디오는 숨기고, 선택 상태는 :has(input:checked)로만 표시한다(JS 변경 없음). -->
               <div class="fg-pill-group">
                 <label class="fg-pill">
-                  <input
-                    type="radio"
-                    name="concept"
-                    value="default"
-                    checked
-                  />
+                  <input type="radio" name="concept" value="default" checked />
                   일반
                 </label>
                 <label class="fg-pill">
@@ -1045,9 +1050,7 @@
                   />
                 </div>
                 <div class="fg-field">
-                  <label class="fg-label" for="member_body_fat"
-                    >체지방률</label
-                  >
+                  <label class="fg-label" for="member_body_fat">체지방률</label>
                   <input
                     class="fg-input"
                     type="text"
@@ -1115,31 +1118,57 @@
       <div id="status"></div>
 
       <div class="article-toolbar" id="articleToolbar">
-        <button type="button" class="fg-btn fg-btn-secondary" id="copyBtn">
-          글 복사
-        </button>
-        <button
-          type="button"
-          class="fg-btn fg-btn-secondary"
-          id="downloadImagesBtn"
-          style="display: none"
-        >
-          이미지 저장
-        </button>
-        <button
-          type="button"
-          class="fg-btn fg-btn-secondary"
-          id="boardWriteBtn"
-          style="display: none"
-        >
-          아임웹 게시판 글쓰기 페이지로 이동
-        </button>
+        <div class="fg-toolbar-buttons">
+          <button type="button" class="fg-btn fg-btn-secondary" id="copyBtn">
+            전체 복사
+          </button>
+          <button
+            type="button"
+            class="fg-btn fg-btn-secondary"
+            id="txtDownloadBtn"
+            style="display: none"
+          >
+            TXT 다운로드
+          </button>
+          <button
+            type="button"
+            class="fg-btn fg-btn-secondary"
+            id="zipDownloadBtn"
+            style="display: none"
+          >
+            작업파일 ZIP 다운로드
+          </button>
+          <button
+            type="button"
+            class="fg-btn fg-btn-secondary"
+            id="docxDownloadBtn"
+            style="display: none"
+          >
+            워드(DOCX) 다운로드
+          </button>
+          <button
+            type="button"
+            class="fg-btn fg-btn-secondary"
+            id="downloadImagesBtn"
+            style="display: none"
+          >
+            이미지 저장
+          </button>
+          <button
+            type="button"
+            class="fg-btn fg-btn-secondary"
+            id="boardWriteBtn"
+            style="display: none"
+          >
+            게시판으로 이동
+          </button>
+        </div>
         <div
           id="publishHint"
           style="display: none; margin-top: 8px; font-size: 12px; color: #777"
         >
-          아임웹 Open API가 게시판 자동 등록을 지원하지 않아, 글을 복사한 뒤
-          게시판 글쓰기 페이지에 직접 붙여넣어야 합니다.
+          게시판 자동 등록을 지원하지 않아, 글을 복사한 뒤 게시판 글쓰기
+          페이지에 직접 붙여넣어야 합니다.
         </div>
       </div>
 
@@ -1147,17 +1176,16 @@
       <div id="resultMeta"></div>
 
       <div class="saved-toggle">
-        <button
-          type="button"
-          class="fg-btn fg-btn-secondary"
-          id="viewSavedBtn"
-        >
+        <button type="button" class="fg-btn fg-btn-secondary" id="viewSavedBtn">
           저장된 글 목록 보기
         </button>
       </div>
       <div id="savedList"></div>
     </div>
 
+    <!-- ZIP 다운로드(작업파일 ZIP 다운로드 버튼)에만 쓰는 순수 클라이언트 라이브러리.
+         Supabase 등 외부 DB는 쓰지 않고, 이 라이브러리 하나만 CDN에서 불러온다. -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script>
       const form = document.getElementById("form");
       const statusEl = document.getElementById("status");
@@ -1166,6 +1194,9 @@
       const metaEl = document.getElementById("resultMeta");
       const submitBtn = document.getElementById("submitBtn");
       const copyBtn = document.getElementById("copyBtn");
+      const txtDownloadBtn = document.getElementById("txtDownloadBtn");
+      const zipDownloadBtn = document.getElementById("zipDownloadBtn");
+      const docxDownloadBtn = document.getElementById("docxDownloadBtn");
       const downloadImagesBtn = document.getElementById("downloadImagesBtn");
       const boardWriteBtn = document.getElementById("boardWriteBtn");
       const publishHint = document.getElementById("publishHint");
@@ -1174,13 +1205,95 @@
       let currentImages = [];
       let appConfig = { storage_available: true, board_write_url: null };
 
+      // 전체 복사/TXT/ZIP 다운로드에 함께 쓰는 결과 메타데이터. 생성 직후에는
+      // 폼에 입력했던 값으로, 저장된 글을 불러올 때는 서버가 아는 값으로 채운다
+      // (저장 글에는 시설 정보 원문이 남아있지 않아 gymInfo가 빈 값일 수 있다).
+      let currentResultMeta = {
+        title: "",
+        keyword: "",
+        gymInfo: "",
+        createdAt: "",
+        imagePlanText: "",
+        generationType: "",
+      };
+
+      const AUTOSAVE_KEY = "gymBlogAutosave";
+
+      // content의 "제목 : " 마커 줄에서 제목만 뽑아낸다. 서버(repository.py의
+      // _extract_title)와 동일한 규칙이라, 못 찾으면 본문 첫 줄을 제목으로 쓴다.
+      function extractTitleFromContent(content) {
+        const lines = (content || "").split("\n");
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (line.startsWith("제목 : ")) {
+            return line.slice("제목 : ".length).trim();
+          }
+        }
+        const stripped = (content || "").trim();
+        return stripped ? stripped.split("\n")[0].trim() : "(제목 없음)";
+      }
+
+      // 생성 유형에 따라 결과 툴바 버튼을 보이거나 숨긴다.
+      // TXT/ZIP은 지점명/이미지 패키징 등 블로그 글 전용 개념이라 blog_post에만,
+      // 워드(DOCX)는 표(요일별 운동 프로그램)가 있는 fitness_plan에만 노출한다.
+      function updateResultToolbarForType(generationType) {
+        const isBlogPostResult = generationType === "blog_post";
+        const isFitnessPlanResult = generationType === "fitness_plan";
+        txtDownloadBtn.style.display = isBlogPostResult
+          ? "inline-block"
+          : "none";
+        zipDownloadBtn.style.display = isBlogPostResult
+          ? "inline-block"
+          : "none";
+        docxDownloadBtn.style.display = isFitnessPlanResult
+          ? "inline-block"
+          : "none";
+      }
+
+      // 생성이 완료되면 브라우저에만 임시저장해 둔다(외부 DB 없음). localStorage
+      // 용량 제한(보통 5~10MB)에 걸릴 수 있어, 실패하면 이미지 base64를 뺀 채로
+      // 한 번 더 시도하고 그래도 안 되면 조용히 포기한다 — 어차피 서버에도
+      // 이미 저장돼 있어서(저장 기능 지원 환경이라면) 치명적이지 않다.
+      function autosaveResultToLocalStorage(meta, content, images) {
+        const payload = {
+          savedAt: new Date().toISOString(),
+          title: meta.title,
+          keyword: meta.keyword,
+          gymInfo: meta.gymInfo,
+          content,
+          imagePlanText: meta.imagePlanText,
+          images,
+        };
+        try {
+          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+        } catch (e) {
+          try {
+            const lighter = {
+              ...payload,
+              images: (images || []).map((img) => ({
+                ...img,
+                image_base64: undefined,
+              })),
+            };
+            localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(lighter));
+          } catch (e2) {
+            console.warn(
+              "임시저장에 실패했습니다(localStorage 용량 초과 등):",
+              e2,
+            );
+          }
+        }
+      }
+
       // 실제로 내려받을 수 있는 이미지(base64/url이 있는 것)가 하나라도 있을 때만
       // 툴바의 "이미지 저장" 버튼을 보여준다.
       function updateDownloadImagesButtonVisibility() {
         const hasDownloadable = currentImages.some(
           (img) => img.image_base64 || img.image_url,
         );
-        downloadImagesBtn.style.display = hasDownloadable ? "inline-block" : "none";
+        downloadImagesBtn.style.display = hasDownloadable
+          ? "inline-block"
+          : "none";
       }
 
       downloadImagesBtn.addEventListener("click", () => {
@@ -1278,7 +1391,16 @@
         statusEl.textContent = "";
         currentContent = "";
         currentImages = [];
+        currentResultMeta = {
+          title: "",
+          keyword: "",
+          gymInfo: "",
+          createdAt: "",
+          imagePlanText: "",
+          generationType: "",
+        };
         updateDownloadImagesButtonVisibility();
+        updateResultToolbarForType("");
       }
 
       document
@@ -1295,9 +1417,7 @@
       const memberDetailsToggle = document.getElementById(
         "memberDetailsToggle",
       );
-      const memberDetailsPanel = document.getElementById(
-        "memberDetailsPanel",
-      );
+      const memberDetailsPanel = document.getElementById("memberDetailsPanel");
       const memberDetailsToggleLabel = document.getElementById(
         "memberDetailsToggleLabel",
       );
@@ -1325,9 +1445,7 @@
       const trainerFormFeatures = document.getElementById(
         "trainerFormFeatures",
       );
-      const trainerFormSaveBtn = document.getElementById(
-        "trainerFormSaveBtn",
-      );
+      const trainerFormSaveBtn = document.getElementById("trainerFormSaveBtn");
       const trainerFormCancelBtn = document.getElementById(
         "trainerFormCancelBtn",
       );
@@ -1409,9 +1527,7 @@
           deleteBtn.type = "button";
           deleteBtn.className = "trainer-delete-btn";
           deleteBtn.textContent = "삭제";
-          deleteBtn.addEventListener("click", () =>
-            deleteTrainer(trainer.id),
-          );
+          deleteBtn.addEventListener("click", () => deleteTrainer(trainer.id));
 
           actions.appendChild(editBtn);
           actions.appendChild(deleteBtn);
@@ -1479,7 +1595,10 @@
 
         saveTrainers(trainers);
 
-        const savedId = editingTrainerId != null ? editingTrainerId : trainers[trainers.length - 1].id;
+        const savedId =
+          editingTrainerId != null
+            ? editingTrainerId
+            : trainers[trainers.length - 1].id;
         resetTrainerForm();
         renderTrainerList();
         renderTrainerSelect();
@@ -1523,6 +1642,10 @@
           if (config.board_write_url) {
             boardWriteBtn.style.display = "inline-block";
             boardWriteBtn.addEventListener("click", () => {
+              const confirmed = confirm(
+                "생성된 글은 임시저장되었습니다. 복사 또는 ZIP 다운로드를 완료했는지 확인해 주세요. 게시판으로 이동할까요?",
+              );
+              if (!confirmed) return;
               window.open(config.board_write_url, "_blank", "noopener");
             });
           }
@@ -1694,7 +1817,11 @@
         lines.forEach((line) => {
           const match = line.trim().match(PLAN_SECTION_HEADER_RE);
           if (match && Number(match[1]) >= 1 && Number(match[1]) <= 7) {
-            current = { number: Number(match[1]), title: match[2].trim(), lines: [] };
+            current = {
+              number: Number(match[1]),
+              title: match[2].trim(),
+              lines: [],
+            };
             sections.push(current);
           } else if (current) {
             current.lines.push(line);
@@ -1763,7 +1890,13 @@
       }
 
       // "4. 실제 하루 식단 예시" 섹션: "아침: ... / 이유: ... / 대체: ..." 블록을 식사 카드로 바꾼다.
-      const MEAL_LABELS = ["아침", "점심", "운동 전 간식", "운동 후 간식", "저녁"];
+      const MEAL_LABELS = [
+        "아침",
+        "점심",
+        "운동 전 간식",
+        "운동 후 간식",
+        "저녁",
+      ];
 
       function renderMealSection(body) {
         const blocks = body
@@ -1781,7 +1914,9 @@
             .filter(Boolean);
           if (blockLines.length === 0) return;
 
-          const label = MEAL_LABELS.find((l) => blockLines[0].startsWith(l + ":"));
+          const label = MEAL_LABELS.find((l) =>
+            blockLines[0].startsWith(l + ":"),
+          );
           if (!label) {
             leftover.push(block);
             return;
@@ -1817,7 +1952,9 @@
             "</div>";
         }
         if (leftover.length > 0) {
-          html += leftover.map((p) => `<p>${escapeHtml(p.replace(/\n/g, " "))}</p>`).join("");
+          html += leftover
+            .map((p) => `<p>${escapeHtml(p.replace(/\n/g, " "))}</p>`)
+            .join("");
         }
         return html || renderParagraphHtml(body);
       }
@@ -1864,7 +2001,10 @@
           headerCells,
           bodyRows,
           before: lines.slice(0, start).join("\n").trim(),
-          after: lines.slice(end + 1).join("\n").trim(),
+          after: lines
+            .slice(end + 1)
+            .join("\n")
+            .trim(),
         };
       }
 
@@ -1875,12 +2015,18 @@
 
         let html = parsed.before ? renderParagraphHtml(parsed.before) : "";
 
-        html += '<div class="plan-table-wrap"><table class="plan-table"><thead><tr>';
-        html += parsed.headerCells.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("");
+        html +=
+          '<div class="plan-table-wrap"><table class="plan-table"><thead><tr>';
+        html += parsed.headerCells
+          .map((cell) => `<th>${escapeHtml(cell)}</th>`)
+          .join("");
         html += "</tr></thead><tbody>";
         html += parsed.bodyRows
           .map(
-            (row) => "<tr>" + row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("") + "</tr>",
+            (row) =>
+              "<tr>" +
+              row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("") +
+              "</tr>",
           )
           .join("");
         html += "</tbody></table></div>";
@@ -1893,7 +2039,8 @@
       // "6. 트레이너 피드백 가이드" 섹션: "첫째,/둘째,/..." 서수 표현이 있으면 그 기준으로,
       // 없으면 문단 기준으로, 그마저 없으면 문장 2개씩 묶어서 카드로 나눈다.
       function renderFeedbackSection(body) {
-        const ordinalRe = /(?:^|\n)(?:첫째|둘째|셋째|넷째|다섯째|여섯째|일곱째)[,、]\s*/;
+        const ordinalRe =
+          /(?:^|\n)(?:첫째|둘째|셋째|넷째|다섯째|여섯째|일곱째)[,、]\s*/;
         let items = [];
 
         if (ordinalRe.test(body)) {
@@ -1923,7 +2070,11 @@
 
         return (
           '<div class="feedback-list">' +
-          items.map((item) => `<div class="feedback-card">${escapeHtml(item)}</div>`).join("") +
+          items
+            .map(
+              (item) => `<div class="feedback-card">${escapeHtml(item)}</div>`,
+            )
+            .join("") +
           "</div>"
         );
       }
@@ -1946,7 +2097,11 @@
 
         return (
           '<div class="check-list">' +
-          items.map((item) => `<div class="check-item">✓ ${escapeHtml(item)}</div>`).join("") +
+          items
+            .map(
+              (item) => `<div class="check-item">✓ ${escapeHtml(item)}</div>`,
+            )
+            .join("") +
           "</div>"
         );
       }
@@ -1999,13 +2154,15 @@
         articleEl.innerHTML = `<div class="plan-result">${sectionsHtml}</div>`;
         articleEl.style.display = "block";
         articleToolbar.style.display = "block";
-        publishHint.style.display = appConfig.board_write_url ? "block" : "none";
+        publishHint.style.display = appConfig.board_write_url
+          ? "block"
+          : "none";
       }
 
       function showCopied() {
         copyBtn.textContent = "복사됨!";
         setTimeout(() => {
-          copyBtn.textContent = "글 복사";
+          copyBtn.textContent = "전체 복사";
         }, 1500);
       }
 
@@ -2032,22 +2189,437 @@
         return ok;
       }
 
+      // "전체 복사": 본문(제목이 첫 줄에 이미 포함됨) + 이미지 안내 문구를 한 번에 합쳐서 복사한다.
+      function buildFullCopyText() {
+        const parts = [currentContent];
+        if (currentResultMeta.imagePlanText) {
+          parts.push("");
+          parts.push("[이미지 안내]");
+          parts.push(currentResultMeta.imagePlanText);
+        }
+        return parts.join("\n");
+      }
+
       copyBtn.addEventListener("click", async () => {
+        const textToCopy = buildFullCopyText();
+
         try {
           if (!navigator.clipboard || !navigator.clipboard.writeText) {
             throw new Error("clipboard API unavailable");
           }
 
-          await navigator.clipboard.writeText(currentContent);
+          await navigator.clipboard.writeText(textToCopy);
           showCopied();
+          statusEl.textContent = "복사 완료!";
         } catch (err) {
-          if (copyWithFallback(currentContent)) {
+          if (copyWithFallback(textToCopy)) {
             showCopied();
+            statusEl.textContent = "복사 완료!";
           } else {
-            alert(
-              "복사에 실패했습니다. 글 내용을 직접 선택해서 복사해 주세요.",
+            statusEl.innerHTML =
+              '<span class="error">복사에 실패했습니다. TXT 다운로드 또는 직접 선택 복사를 이용해 주세요.</span>';
+          }
+        }
+      });
+
+      // 파일명에 못 쓰는 문자를 제거한다. 결과가 비면 안전한 기본값으로 대체한다.
+      function sanitizeFilename(name) {
+        return (name || "").replace(/[\\/:*?"<>|]/g, "").trim() || "블로그원고";
+      }
+
+      function downloadBlob(filename, blob) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      function downloadTextFile(filename, text) {
+        downloadBlob(
+          filename,
+          new Blob([text], { type: "text/plain;charset=utf-8" }),
+        );
+      }
+
+      // TXT/ZIP 원고 파일 맨 위에 붙일 메타데이터 블록(제목/키워드/지점명/생성일).
+      function buildMetaTextBlock() {
+        const created = currentResultMeta.createdAt
+          ? formatDate(currentResultMeta.createdAt)
+          : formatDate(new Date().toISOString());
+        return [
+          `제목: ${currentResultMeta.title || "(제목 없음)"}`,
+          `키워드: ${currentResultMeta.keyword || "(없음)"}`,
+          `지점명(시설 정보): ${currentResultMeta.gymInfo || "(저장된 정보 없음)"}`,
+          `생성일: ${created}`,
+        ].join("\n");
+      }
+
+      txtDownloadBtn.addEventListener("click", () => {
+        const text = `${buildMetaTextBlock()}\n\n${currentContent}`;
+        downloadTextFile(
+          `${sanitizeFilename(currentResultMeta.title)}.txt`,
+          text,
+        );
+      });
+
+      // ZIP 안에 함께 넣을 원고.html — renderArticle과 같은 마커/이미지 매칭 규칙을
+      // 그대로 써서, 이미지가 실제로 올바른 위치에 삽입된 완성 문서를 만든다.
+      function buildArticleHtmlDocument(content, images) {
+        const representative = images.find((img) => img.type === "대표 이미지");
+        const bodyImages = images.filter((img) => img.type === "본문 이미지");
+        const usedBodyImages = new Set();
+        const hasFile = (img) =>
+          Boolean(img && (img.image_base64 || img.image_url));
+
+        const htmlLines = [];
+        content.split("\n").forEach((rawLine) => {
+          const line = rawLine.trim();
+          if (!line) return;
+
+          htmlLines.push(`<p>${escapeHtml(line)}</p>`);
+
+          if (line === "썸네일" && hasFile(representative)) {
+            htmlLines.push(
+              `<img src="이미지/${escapeHtml(representative.filename)}" alt="${escapeHtml(representative.alt || "")}" />`,
             );
           }
+
+          const normalizedLine = normalizeHeading(line);
+          const matched = bodyImages.find((img) => {
+            if (usedBodyImages.has(img) || !img.insert_position) return false;
+            const pos = normalizeHeading(img.insert_position);
+            if (!pos || !normalizedLine) return false;
+            return (
+              pos === normalizedLine ||
+              normalizedLine.includes(pos) ||
+              pos.includes(normalizedLine)
+            );
+          });
+          if (matched && hasFile(matched)) {
+            usedBodyImages.add(matched);
+            htmlLines.push(
+              `<img src="이미지/${escapeHtml(matched.filename)}" alt="${escapeHtml(matched.alt || "")}" />`,
+            );
+          }
+        });
+
+        bodyImages
+          .filter((img) => !usedBodyImages.has(img) && hasFile(img))
+          .forEach((img) => {
+            htmlLines.push(
+              `<img src="이미지/${escapeHtml(img.filename)}" alt="${escapeHtml(img.alt || "")}" />`,
+            );
+          });
+
+        return [
+          "<!doctype html>",
+          '<html lang="ko"><head><meta charset="utf-8" />',
+          `<title>${escapeHtml(currentResultMeta.title || "블로그 원고")}</title>`,
+          '<style>body{font-family:-apple-system,"Malgun Gothic",sans-serif;max-width:640px;margin:40px auto;padding:0 16px;line-height:1.8;color:#222;}p{margin:0 0 16px 0;}img{max-width:100%;border-radius:8px;margin:8px 0 20px;display:block;}</style>',
+          "</head><body>",
+          htmlLines.join("\n"),
+          "</body></html>",
+        ].join("\n");
+      }
+
+      // 이미지 URL을 fetch해서 zip에 넣는다. 실패한 항목은 반환해서
+      // 업로드_안내.txt에 URL 목록으로 남길 수 있게 한다.
+      async function addImagesToZipFolder(imagesFolder, images) {
+        const failed = [];
+
+        for (let i = 0; i < images.length; i++) {
+          const img = images[i];
+          if (!img) continue;
+          const filename = img.filename || `image-${i + 1}.jpg`;
+
+          if (img.image_base64) {
+            imagesFolder.file(filename, img.image_base64, { base64: true });
+          } else if (img.image_url) {
+            try {
+              const res = await fetch(img.image_url);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const blob = await res.blob();
+              imagesFolder.file(filename, blob);
+            } catch (err) {
+              failed.push({
+                filename,
+                url: img.image_url,
+                error: (err && err.message) || String(err),
+              });
+            }
+          }
+        }
+
+        return failed;
+      }
+
+      // ZIP에는 원고(txt/html)와 이미지만 담는다. 제목.txt처럼 원고에 이미 담긴
+      // 정보를 굳이 별도 파일로 또 넣지 않고, 안내 파일도 실제로 문제(이미지
+      // 다운로드 실패)가 있을 때만 만든다 — 잘 되면 원고+이미지뿐이다.
+      async function buildZipBlob() {
+        const zip = new JSZip();
+
+        zip.file("원고.txt", `${buildMetaTextBlock()}\n\n${currentContent}`);
+        zip.file(
+          "원고.html",
+          buildArticleHtmlDocument(currentContent, currentImages),
+        );
+
+        const imagesFolder = zip.folder("이미지");
+        const failedImages = await addImagesToZipFolder(
+          imagesFolder,
+          currentImages,
+        );
+
+        if (failedImages.length > 0) {
+          const guideLines = [
+            "[이미지 자동 다운로드 실패 — 아래 URL에서 직접 저장해서 첨부해 주세요]",
+          ];
+          failedImages.forEach((f) => {
+            guideLines.push(`- ${f.filename}: ${f.url} (사유: ${f.error})`);
+          });
+          zip.file("이미지_다운로드_실패목록.txt", guideLines.join("\n"));
+        }
+
+        return zip.generateAsync({ type: "blob" });
+      }
+
+      zipDownloadBtn.addEventListener("click", async () => {
+        if (typeof JSZip === "undefined") {
+          statusEl.innerHTML =
+            '<span class="error">ZIP 생성 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.</span>';
+          return;
+        }
+
+        const originalLabel = zipDownloadBtn.textContent;
+        zipDownloadBtn.disabled = true;
+        zipDownloadBtn.textContent = "ZIP 만드는 중...";
+
+        try {
+          const blob = await buildZipBlob();
+          downloadBlob(
+            `${sanitizeFilename(currentResultMeta.title)}.zip`,
+            blob,
+          );
+        } catch (err) {
+          statusEl.innerHTML = `<span class="error">ZIP 생성에 실패했습니다: ${escapeHtml((err && err.message) || String(err))}</span>`;
+        } finally {
+          zipDownloadBtn.disabled = false;
+          zipDownloadBtn.textContent = originalLabel;
+        }
+      });
+
+      // ==== 운동·식단 프로그램(fitness_plan) 워드(DOCX) 다운로드 ====
+      // 진짜 .hwp(한글) 파일은 브라우저에서 외부 라이브러리 없이 만들 수 없어서,
+      // 대신 MS Word와 한글(HWP, docx 가져오기 지원) 양쪽에서 다 열리는 표준
+      // .docx를 JSZip으로 직접 조립한다. docx 자체가 XML 묶음을 담은 zip
+      // 파일이라, 이미 불러온 JSZip만으로 최소 구성 요건([Content_Types].xml,
+      // _rels/.rels, word/document.xml)을 갖춰 만들 수 있다 — 별도 docx
+      // 라이브러리를 추가로 불러올 필요가 없다.
+      function escapeXml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&apos;");
+      }
+
+      function docxParagraph(text, options) {
+        const opts = options || {};
+        const bold = opts.bold || false;
+        const sizeHalfPt = opts.sizeHalfPt || 21; // 21 half-points = 10.5pt(본문 기본값)
+        const spacingBefore = opts.spacingBefore || 0;
+        const spacingAfter =
+          opts.spacingAfter != null ? opts.spacingAfter : 120;
+
+        const runProps = `<w:rPr>${bold ? "<w:b/>" : ""}<w:sz w:val="${sizeHalfPt}"/></w:rPr>`;
+        const pPr = `<w:pPr><w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}"/></w:pPr>`;
+        return `<w:p>${pPr}<w:r>${runProps}<w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
+      }
+
+      // 빈 줄 기준 문단이 1개뿐인데 원문에 줄바꿈이 여러 개면(회원 데이터 요약,
+      // 체크리스트처럼 줄 단위 항목) 줄 단위로 쪼개서 각각 문단으로 보여준다.
+      function sectionBodyToParagraphs(body) {
+        const byBlankLine = splitParagraphs(body);
+        if (byBlankLine.length > 1) return byBlankLine;
+
+        const byLine = body
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+        return byLine.length > 1 ? byLine : byBlankLine;
+      }
+
+      function docxTable(headerCells, bodyRows) {
+        const colCount = headerCells.length || 1;
+        const colWidth = Math.floor(9000 / colCount);
+        const gridCols = headerCells
+          .map(() => `<w:gridCol w:w="${colWidth}"/>`)
+          .join("");
+
+        const cellBorders =
+          "<w:tcBorders>" +
+          '<w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          '<w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          '<w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          "</w:tcBorders>";
+
+        const makeRow = (cells, bold) =>
+          "<w:tr>" +
+          cells
+            .map(
+              (cell) =>
+                `<w:tc><w:tcPr><w:tcW w:w="${colWidth}" w:type="dxa"/>${cellBorders}</w:tcPr><w:p><w:r>${bold ? "<w:rPr><w:b/></w:rPr>" : ""}<w:t xml:space="preserve">${escapeXml(cell)}</w:t></w:r></w:p></w:tc>`,
+            )
+            .join("") +
+          "</w:tr>";
+
+        const tableBorders =
+          "<w:tblBorders>" +
+          '<w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          '<w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          '<w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+          "</w:tblBorders>";
+
+        return (
+          `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>${tableBorders}</w:tblPr>` +
+          `<w:tblGrid>${gridCols}</w:tblGrid>` +
+          makeRow(headerCells, true) +
+          bodyRows.map((row) => makeRow(row, false)).join("") +
+          "</w:tbl>"
+        );
+      }
+
+      // parsePlanSections/extractMarkdownTable(둘 다 renderFitnessPlan에서 쓰는
+      // 파서)을 그대로 재사용해서, 화면 카드와 같은 구조로 문서를 만든다. 요일별
+      // 운동 프로그램(5번 섹션)만 markdown table을 실제 Word 표로 바꾸고,
+      // 나머지 섹션은 문단으로 넣는다.
+      function buildFitnessPlanDocxBodyXml(content) {
+        const sections = parsePlanSections(content);
+        const title = currentResultMeta.title || "운동·식단 프로그램";
+        const parts = [
+          docxParagraph(title, {
+            bold: true,
+            sizeHalfPt: 32,
+            spacingAfter: 240,
+          }),
+        ];
+
+        if (sections.length === 0) {
+          content
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .forEach((line) => parts.push(docxParagraph(line)));
+          return parts.join("");
+        }
+
+        sections.forEach((section) => {
+          parts.push(
+            docxParagraph(`${section.number}. ${section.title}`, {
+              bold: true,
+              sizeHalfPt: 26,
+              spacingBefore: 240,
+              spacingAfter: 120,
+            }),
+          );
+
+          const parsedTable =
+            section.number === 5 ? extractMarkdownTable(section.body) : null;
+
+          if (parsedTable) {
+            if (parsedTable.before) {
+              splitParagraphs(parsedTable.before).forEach((p) =>
+                parts.push(docxParagraph(p)),
+              );
+            }
+            parts.push(
+              docxTable(parsedTable.headerCells, parsedTable.bodyRows),
+            );
+            if (parsedTable.after) {
+              splitParagraphs(parsedTable.after).forEach((p) =>
+                parts.push(docxParagraph(p)),
+              );
+            }
+            return;
+          }
+
+          sectionBodyToParagraphs(section.body).forEach((p) =>
+            parts.push(docxParagraph(p)),
+          );
+        });
+
+        return parts.join("");
+      }
+
+      async function buildFitnessPlanDocxBlob() {
+        const bodyXml = buildFitnessPlanDocxBodyXml(currentContent);
+
+        const documentXml =
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+          '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+          "<w:body>" +
+          bodyXml +
+          '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr>' +
+          "</w:body></w:document>";
+
+        const contentTypesXml =
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+          '<Default Extension="xml" ContentType="application/xml"/>' +
+          '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+          "</Types>";
+
+        const rootRelsXml =
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+          '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+          "</Relationships>";
+
+        const zip = new JSZip();
+        zip.file("[Content_Types].xml", contentTypesXml);
+        zip.folder("_rels").file(".rels", rootRelsXml);
+        zip.folder("word").file("document.xml", documentXml);
+
+        return zip.generateAsync({
+          type: "blob",
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        });
+      }
+
+      docxDownloadBtn.addEventListener("click", async () => {
+        if (typeof JSZip === "undefined") {
+          statusEl.innerHTML =
+            '<span class="error">문서 생성 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.</span>';
+          return;
+        }
+
+        const originalLabel = docxDownloadBtn.textContent;
+        docxDownloadBtn.disabled = true;
+        docxDownloadBtn.textContent = "문서 만드는 중...";
+
+        try {
+          const blob = await buildFitnessPlanDocxBlob();
+          downloadBlob(
+            `${sanitizeFilename(currentResultMeta.title)}.docx`,
+            blob,
+          );
+        } catch (err) {
+          statusEl.innerHTML = `<span class="error">워드 문서 생성에 실패했습니다: ${escapeHtml((err && err.message) || String(err))}</span>`;
+        } finally {
+          docxDownloadBtn.disabled = false;
+          docxDownloadBtn.textContent = originalLabel;
         }
       });
 
@@ -2156,6 +2728,27 @@
           currentContent = data.content;
           currentImages = data.images || [];
           updateDownloadImagesButtonVisibility();
+
+          currentResultMeta = {
+            title: extractTitleFromContent(data.content),
+            keyword: payload.keyword,
+            gymInfo: payload.gym_info,
+            createdAt: new Date().toISOString(),
+            imagePlanText: data.image_plan_text || "",
+            generationType: generationType,
+          };
+          updateResultToolbarForType(generationType);
+
+          // 블로그 글이 완성되면 게시판으로 옮기기 전에 잃어버리지 않도록
+          // 브라우저에 임시저장해 둔다(요청하신 대로 TXT/ZIP 다운로드·아임웹
+          // 이동처럼 블로그 글 전용 흐름이라 blog_post에만 적용한다).
+          if (isBlogPost) {
+            autosaveResultToLocalStorage(
+              currentResultMeta,
+              data.content,
+              data.images,
+            );
+          }
 
           if (isBlogPost) {
             renderArticle(data.content, data.images);
@@ -2336,6 +2929,18 @@
           currentContent = data.content;
           currentImages = data.images || [];
           updateDownloadImagesButtonVisibility();
+
+          // 저장 글에는 시설 정보(지점명) 원문이 남아있지 않으므로 gymInfo는
+          // 빈 값으로 둔다 — TXT/ZIP 다운로드 쪽에서 "정보 없음"으로 표시한다.
+          currentResultMeta = {
+            title: data.title || extractTitleFromContent(data.content),
+            keyword: data.keyword || "",
+            gymInfo: "",
+            createdAt: data.created_at || "",
+            imagePlanText: data.image_plan_text || "",
+            generationType: savedGenerationType,
+          };
+          updateResultToolbarForType(savedGenerationType);
 
           if (savedGenerationType === "blog_post") {
             renderArticle(data.content, data.images);
